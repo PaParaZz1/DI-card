@@ -18,9 +18,9 @@ class GenshinCardEnv(gym.Env):
         embedding_num: int = 32,
         max_skill_num: int = 4,
         max_usable_card_num: int = 10,
-        max_usable_dice_num: int = 12,
-        max_summoner_num: int = 3 * 2,  # our side and other side
-        max_supporter_num: int = 6 * 2,  # our side and other side
+        max_usable_dice_num: int = 16,
+        max_summoner_num: int = 4 * 2,  # our side and other side
+        max_supporter_num: int = 4 * 2,  # our side and other side
     ):
         self.env_id = env_id
         if self.env_id is None:
