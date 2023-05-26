@@ -169,7 +169,7 @@ def get_observation_space(
         enemy_card_num=((1, ), FeatureType.CATEGORICAL, (0, max_usable_card_num + 1)),
         summoner_is_available=((max_summoner_num, ), FeatureType.CATEGORICAL, (0, 2)),
         summoner_is_enemy=((max_summoner_num, ), FeatureType.CATEGORICAL, (0, 2)),
-        summoner_remain_turn=((max_summoner_num, ), FeatureType.CATEGORICAL, (0, 3)),
+        summoner_remain_turn=((max_summoner_num, ), FeatureType.CATEGORICAL, (0, 5)),  # 3+1+1
         summoner_other_info=((max_summoner_num * embedding_num, ), FeatureType.SCALAR, (-1, 1)),
         supporter_is_available=((max_supporter_num, ), FeatureType.CATEGORICAL, (0, 2)),
         supporter_is_enemy=((max_supporter_num, ), FeatureType.CATEGORICAL, (0, 2)),
