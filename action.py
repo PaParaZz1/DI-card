@@ -9,17 +9,18 @@ from obs import Character, Card, ObservationSpace, ElementalDiceType
 class BasicRuleUtilities:
 
     @staticmethod
-    def replace_card_at_beginning(init_obs:tnp):
+    def replace_card_at_beginning(init_obs:tnp.ndarray):
         # At the beginning, five action cards will be drawn
+        # V0: Directly discard the cards that need to consume more than 3 dice
         card_dice_cost = init_obs.card_dice_cost[:5]
         card_selected_change = np.zeros_like(card_dice_cost)
         card_selected_change[card_dice_cost >= 3] = 1
         return card_selected_change
 
     @staticmethod
-    def reroll_dice(obs:tnp):
+    def reroll_dice(obs:tnp.ndarray):
         # Non-currently playing character elements and universal elements, the rest are rerolled
-        our_current_character_index = np.where((obs.character_is_battle == 1) & (obs.character_is_enemy == 0))[0]
+        our_current_character_index = np.where(obs.character_is_battle & (~obs.character_is_enemy))[0]
         our_current_character_element = obs.character_element_type[our_current_character_index[0]]
         dice_reroll = [
             # 'colorless': always keep the colorless dice
@@ -43,19 +44,19 @@ class BasicRuleUtilities:
         return np.array(dice_reroll)
 
     @staticmethod
-    def select_skill_target_character(skill_type, skill_arg, obs:tnp):
+    def select_skill_target_character(skill_type, skill_arg, obs:tnp.ndarray):
         """skill contains cards and character skills"""
         # according to skill_type, card/skill to choose
         if skill_type == ActionType.play_card:
             # play card: By default, select our current front-end character
-            target_character = obs.character_is_battle * (1 - obs.character_is_enemy)
+            target_character = obs.character_is_battle & (~obs.character_is_enemy)
         elif skill_type == ActionType.use_skill:
             # use skill: By default, select opponent's current front-end character
-            target_character = obs.character_is_battle * obs.character_is_enemy
+            target_character = obs.character_is_battle & obs.character_is_enemy
         return  target_character
 
     @staticmethod
-    def select_skill_dice(skill_type, skill_arg, obs):
+    def select_skill_dice(skill_type, skill_arg, obs:tnp.ndarray):
         dice_list = [
             # 'colorless':
             obs.colorless_dice_num[0],
@@ -75,7 +76,9 @@ class BasicRuleUtilities:
             obs.dendro_dice_num[0],
         ]
         if skill_type == ActionType.elemental_harmony:
-            our_current_character_index = np.where(obs.character_is_battle * (1 - obs.character_is_enemy))[0]
+            # By default this case has at least one non-current element dice
+            # we directly select the least no. of non-current element dice
+            our_current_character_index = np.where(obs.character_is_battle & (~obs.character_is_enemy))[0]
             our_current_character_element = obs.character_element_type[our_current_character_index[0]]
             dice_list[our_current_character_element] = np.maximum
             dice_list[ElementalDiceType.colorless] = np.maximum
@@ -92,7 +95,7 @@ class BasicRuleUtilities:
         return dice_select_list
 
     @staticmethod
-    def select_elemental_harmony_target_card(obs):
+    def select_elemental_harmony_target_card(obs:tnp.ndarray):
         card_dice_cost = obs.card_dice_cost
         # Temporarily choose the card that consumes the most dice
         max_dice_cost = max(card_dice_cost)
@@ -122,38 +125,50 @@ class ActionArgs:
     none: int = 3
 
 
-class ActionSpace(gym.Space):
+class ActionSpace(gym.spaces.Dict):
 
     def __init__(self):
-        self.action_type_cpace = gym.spaces.Discrete(5)     # throw card/elemental harmony/use skill/switch role/end round
-        self.card_action_args_space = gym.spaces.Discrete(10) # 10 options for the argseter space of throw card/elemental harmony
-        self.skill_action_args_space = gym.spaces.Discrete(4)  # 3/4 options for arg space for use skills
-        self.switch_character_action_args_space = gym.spaces.Discrete(3)  # 3 options for arg space for switch role
 
-        super().__init__(self.shape, self.dtype)
-    
-    def sample(self):
-        action_type = self.action_type_space.sample()  # Randomly choose the type of action
-        if action_type == 0 or action_type == 1:  # throw card/element harmony
-            action_args = self.card_action_args_space.sample()  # Randomly select args for throw card/elemental harmony
+        action_type_space = gym.spaces.Discrete(5)     # play card/elemental harmony/use skill/switch role/end round
+        card_action_args_space = gym.spaces.Discrete(10) # 10 options for the argseter space of play card/elemental harmony
+        skill_action_args_space = gym.spaces.Discrete(4)  # 3/4 options for arg space for use skills
+        switch_character_action_args_space = gym.spaces.Discrete(3)  # 3 options for arg space for switch role
+        action_arg_spaces = {
+            'play_card': card_action_args_space,
+            'elemental_harmony': card_action_args_space,
+            'use_skill': skill_action_args_space,
+            'switch_character': switch_character_action_args_space,
+            'end_round': gym.spaces.Discrete(1)
+        }
+        action_space_dict = {
+            'action_type_space':action_type_space,
+            'action_arg_space':gym.spaces.Dict(action_arg_spaces)
+        }
+        super().__init__(action_space_dict)
+
+    def sample(self, obs=None):
+        action_type = self['action_type_space'].sample()  # Randomly choose the type of action
+        if obs is not None:
+            card_mask = obs['card_is_available'].astype(np.int8)
+            skill_mask = obs['skill_is_available'].astype(np.int8)
+            character_mask = obs['character_is_alive'][:3].astype(np.int8)
+        else:
+            card_mask = np.ones(self['action_arg_space']['play_card'].n,dtype=np.int8)
+            skill_mask = np.ones(self['action_arg_space']['use_skill'].n,dtype=np.int8)
+            character_mask = np.ones(self['use_skill']['use_skill'].n,dtype=np.int8)
+
+        if action_type == 0:    # play card
+            action_args = self['action_arg_space']['play_card'].sample(mask=card_mask)
+        elif action_type == 1:  # element harmony
+            action_args = self['action_arg_space']['elemental_harmony'].sample(mask=card_mask)  # Randomly select args for play card/elemental harmony
         elif action_type == 2:  # use skills
-            action_args = self.skill_action_args_space.sample()
+            action_args = self['action_arg_space']['use_skill'].sample(mask=skill_mask)
         elif action_type == 3:  # switch role
-            action_args = self.switch_character_action_args_space.sample()  # Randomly select args for switch role
+            action_args = self['action_arg_space']['switch_character'].sample(mask=character_mask)  # Randomly select args for switch role
         else:  # end round
             action_args = None
         return tnp.array({'action_type': action_type, 'action_args': action_args})
-    
-    # need 'contains'?
-    
-    @property
-    def shape(self):
-        return (2,)  # The shape of the action space is a tuple of length 2
-
-    @property
-    def dtype(self):
-        return (int, int)  # The data type of the action space is a tuple containing two integers
-
+  
     # def sample(self, obs) -> tnp.ndarray:
     #     # action_type
     #     p = np.array([1. for _ in range(5)])
@@ -197,3 +212,4 @@ class ActionSpace(gym.Space):
 
 def get_action_space(character_list: List[Character]):
     return ActionSpace()
+
