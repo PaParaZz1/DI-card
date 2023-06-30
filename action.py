@@ -48,6 +48,7 @@ class BasicRuleUtilities:
         """skill contains cards and character skills"""
         # according to skill_type, card/skill to choose
         if skill_type == ActionType.play_card:
+            # TODO: require information about usable objects of cards
             # play card: By default, select our current front-end character
             target_character = obs.character_is_battle & (~obs.character_is_enemy)
         elif skill_type == ActionType.use_skill:
