@@ -23,9 +23,9 @@ class CharacterObsEncoder(nn.Module):
     def __init__(self, obs_space):
         super(CharacterObsEncoder, self).__init__()
 
-        self.num_characters = obs_space.character_is_alive.shape[0]
+        self.characters_obs_shape = obs_space.character_is_alive.shape[0]*10
         self.encoder = nn.Sequential(
-            nn.Linear(self.num_characters, 64),
+            nn.Linear(self.characters_obs_shape, 64),
             nn.ReLU(),
             nn.Linear(64, 32),
             nn.ReLU()
@@ -39,9 +39,9 @@ class SkillObsEncoder(nn.Module):
     def __init__(self, obs_space):
         super(SkillObsEncoder, self).__init__()
 
-        self.num_skills = obs_space.skill_is_available.shape[0]
+        self.skills_obs_shape = obs_space.skill_is_available.shape[0]*3
         self.encoder = nn.Sequential(
-            nn.Linear(self.num_skills, 64),
+            nn.Linear(self.skills_obs_shape, 64),
             nn.ReLU(),
             nn.Linear(64, 32),
             nn.ReLU()
@@ -55,9 +55,9 @@ class CardObsEncoder(nn.Module):
     def __init__(self, obs_space):
         super(CardObsEncoder, self).__init__()
 
-        self.num_cards = obs_space.card_is_available.shape[0]
+        self.cards_obs_shape = obs_space.card_is_available.shape[0]*4
         self.encoder = nn.Sequential(
-            nn.Linear(self.num_cards, 64),
+            nn.Linear(self.cards_obs_shape, 64),
             nn.ReLU(),
             nn.Linear(64, 32),
             nn.ReLU()
@@ -71,9 +71,9 @@ class SummonerObsEncoder(nn.Module):
     def __init__(self, obs_space):
         super(SummonerObsEncoder, self).__init__()
 
-        self.num_summoners = obs_space.summoner_is_available.shape[0]
+        self.summoners_obs_shape = obs_space.summoner_is_available.shape[0]*3
         self.encoder = nn.Sequential(
-            nn.Linear(self.num_summoners, 64),
+            nn.Linear(self.summoners_obs_shape, 64),
             nn.ReLU(),
             nn.Linear(64, 32),
             nn.ReLU()
@@ -87,9 +87,9 @@ class SupporterObsEncoder(nn.Module):
     def __init__(self, obs_space):
         super(SupporterObsEncoder, self).__init__()
 
-        self.num_supporters = obs_space.supporter_is_available.shape[0]
+        self.supporters_obs_shape = obs_space.supporter_is_available.shape[0]*3
         self.encoder = nn.Sequential(
-            nn.Linear(self.num_supporters, 64),
+            nn.Linear(self.supporters_obs_shape, 64),
             nn.ReLU(),
             nn.Linear(64, 32),
             nn.ReLU()
