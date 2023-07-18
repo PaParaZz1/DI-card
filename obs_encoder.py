@@ -110,7 +110,7 @@ class ObservationEncoder(nn.Module):
         self.summoner_encoder = SummonerObsEncoder(obs_space)
         self.supporter_encoder = SupporterObsEncoder(obs_space)
         
-    def forward(self, observation:ttorch.tensor):
+    def forward(self, observation:list):
         encoded_observation = {}
         new_obs = self.process_obs(observation)
         encoded_observation['dice_obs'] = self.dice_encoder(new_obs['dice_obs'])
@@ -122,57 +122,78 @@ class ObservationEncoder(nn.Module):
         
         return encoded_observation
 
-    def process_obs(self, obs):
-        dice_obs = torch.cat([
-            obs.dice_num,
-            obs.opposite_dice_num,
-            obs.colorless_dice_num,
-            obs.pyro_dice_num,
-            obs.hydro_dice_num,
-            obs.electro_dice_num,
-            obs.cryo_dice_num,
-            obs.geo_dice_num,
-            obs.anemo_dice_num,
-            obs.dendro_dice_num
-        ], dim=0)   # (10,)
+    def process_obs(self, obs_list:list):
+        batch_size = len(obs_list)
+        dice_obs_list = []
+        character_obs_list = []
+        skill_obs_list = []
+        card_obs_list = []
+        summoner_obs_list = []
+        supporter_obs_list = []
+        for obs in obs_list:
+            dice_obs = torch.cat([
+                obs.dice_num,
+                obs.opposite_dice_num,
+                obs.colorless_dice_num,
+                obs.pyro_dice_num,
+                obs.hydro_dice_num,
+                obs.electro_dice_num,
+                obs.cryo_dice_num,
+                obs.geo_dice_num,
+                obs.anemo_dice_num,
+                obs.dendro_dice_num
+            ], dim=0)   # (10)
+            dice_obs_list.append(dice_obs)
 
-        character_obs = torch.stack([
-            obs.character_is_alive,
-            obs.character_is_battle,
-            obs.character_hp,
-            obs.character_charge_point,
-            obs.character_charge_point_max,
-            obs.character_weapon_type,
-            obs.character_element_type,
-            obs.character_is_enemy,
-            obs.character_element_attachment,
-            obs.character_is_full
-        ], dim=0)   # (10,character_num)
+            character_obs = torch.cat([
+                obs.character_is_alive,
+                obs.character_is_battle,
+                obs.character_hp,
+                obs.character_charge_point,
+                obs.character_charge_point_max,
+                obs.character_weapon_type,
+                obs.character_element_type,
+                obs.character_is_enemy,
+                obs.character_element_attachment,
+                obs.character_is_full
+            ], dim=0)   # (10*character_num)
+            character_obs_list.append(character_obs)
 
-        skill_obs = torch.stack([
-            obs.skill_is_available,
-            obs.skill_is_charge,
-            obs.skill_direct_damage,
-        ], dim=0)   # (3,max_skill_num )
+            skill_obs = torch.cat([
+                obs.skill_is_available,
+                obs.skill_is_charge,
+                obs.skill_direct_damage,
+            ], dim=0)   # (3*max_skill_num )
+            skill_obs_list.append(skill_obs)
 
-        card_obs = torch.stack([
-            obs.card_is_available,
-            obs.card_is_same_dice,
-            obs.card_dice_cost,
-            obs.card_type,
-        ], dim=0)   # (4, max_usable_card_num)
+            card_obs = torch.cat([
+                obs.card_is_available,
+                obs.card_is_same_dice,
+                obs.card_dice_cost,
+                obs.card_type,
+            ], dim=0)   # (4*max_usable_card_num)
+            card_obs_list.append(card_obs)
 
-        summoner_obs = torch.stack([
-            obs.summoner_is_available,
-            obs.summoner_is_enemy,
-            obs.summoner_remain_turn,
-        ], dim=0)   # (3, max_summoner_num)
-        
-        supporter_obs = torch.stack([
-            obs.supporter_is_available,
-            obs.supporter_is_enemy,
-            obs.supporter_count,
-        ], dim=0)   # (3, max_supporter_num)
+            summoner_obs = torch.cat([
+                obs.summoner_is_available,
+                obs.summoner_is_enemy,
+                obs.summoner_remain_turn,
+            ], dim=0)   # (3*max_summoner_num)
+            summoner_obs_list.append(summoner_obs)
+            
+            supporter_obs = torch.cat([
+                obs.supporter_is_available,
+                obs.supporter_is_enemy,
+                obs.supporter_count,
+            ], dim=0)   # (3*max_supporter_num)
+            supporter_obs_list.append(supporter_obs)
+
+        dice_obs = torch.stack(dice_obs_list, dim=0)
+        character_obs = torch.stack(character_obs_list, dim=0)
+        skill_obs = torch.stack(skill_obs_list, dim=0)
+        card_obs = torch.stack(card_obs_list, dim=0)
+        summoner_obs = torch.stack(summoner_obs_list, dim=0)
+        supporter_obs = torch.stack(supporter_obs_list, dim=0)
 
         return {
             'dice_obs': dice_obs,
