@@ -4,12 +4,12 @@ import torch.nn as nn
 from obs import ObservationSpace
 
 class SubObsEncoder(nn.Module):
-    def __init__(self, input_size, output_size=256):
+    def __init__(self, input_size, output_size=256, hidden_size=64):
         super(SubObsEncoder, self).__init__()
         self.sub_encoder = nn.Sequential(
-            nn.Linear(input_size, 64),
+            nn.Linear(input_size, hidden_size),
             nn.ReLU(),
-            nn.Linear(64, output_size),
+            nn.Linear(hidden_size, output_size),
             nn.ReLU()
         )
         
@@ -115,7 +115,7 @@ class ObservationEncoder(nn.Module):
         ], dim=1)
         encoded_observation['supporter_obs'] = torch.cat([
             self.supporter_encoder(new_obs['supporter_obs']),
-            new_obs['summoner_other_info_obs']
+            new_obs['supporter_other_info_obs']
         ], dim=1)
         
         return encoded_observation
