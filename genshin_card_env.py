@@ -4,6 +4,7 @@ import numpy as np
 import treetensor.numpy as tnp
 from obs import get_observation_space, Character, Card
 from action import get_action_space, BasicRuleUtilities
+from obs_encoder import ObservationEncoder
 
 
 class GenshinCardEnv(gym.Env):
@@ -13,7 +14,7 @@ class GenshinCardEnv(gym.Env):
         env_id: str,
         character_list: Optional[List[Character]],
         card_list: Optional[List[Card]],
-        max_card_num: int = 30,
+        max_card_num: int = 30,     # The deck contains 30 action cards
         character_num: int = 3 * 2,  # our side and other side
         embedding_num: int = 32,
         max_skill_num: int = 4,
@@ -54,6 +55,7 @@ class GenshinCardEnv(gym.Env):
         raise NotImplementedError
 
     def _get_obs(self, raw_game_info) -> tnp.ndarray:
+        
         raise NotImplementedError
 
 
@@ -62,6 +64,9 @@ if __name__ == "__main__":
     obs = env.observation_space.sample()
     print(obs)
     # print([v.shape for v in obs.values()])
+    obs_encoder = ObservationEncoder(env.observation_space)
+    batch_obs = [obs.tensor() for i in range(8)]
+    encoded_obs = obs_encoder(batch_obs)
     flatten_obs = tnp.concatenate(list(obs.values()))
     print(flatten_obs.shape)
     for _ in range(5):
