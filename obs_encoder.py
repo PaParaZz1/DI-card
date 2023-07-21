@@ -81,11 +81,26 @@ class SupporterObsEncoder(nn.Module):
     def forward(self, supporter_obs):
         return self.encoder(supporter_obs)
 
+class GlobalObsEncoder(nn.Module):
+    def __init__(self, input_size, output_size=256, hidden_size=256):
+        super(GlobalObsEncoder, self).__init__()
+        self.encoder = nn.Sequential(
+            nn.Linear(input_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, output_size),
+            nn.ReLU()
+        )
+        
+    def forward(self, gloabl_obs):
+        return self.encoder(gloabl_obs)
 
 class ObservationEncoder(nn.Module):
     def __init__(self, obs_space:ObservationSpace):
         super(ObservationEncoder, self).__init__()
 
+        # global obs
+        self.global_encoder = GlobalObsEncoder(input_size=6)
+        # sub-obs
         self.dice_encoder = DiceObsEncoder(obs_space)
         self.character_encoder = CharacterObsEncoder(obs_space)
         self.skill_encoder = SkillObsEncoder(obs_space)
@@ -93,9 +108,10 @@ class ObservationEncoder(nn.Module):
         self.summoner_encoder = SummonerObsEncoder(obs_space)
         self.supporter_encoder = SupporterObsEncoder(obs_space)
         
-    def forward(self, observation:list):
+    def forward(self, observation:list, last_action:list):
         encoded_observation = {}
-        new_obs = self.process_obs(observation)
+        new_obs = self.process_obs(observation,last_action)
+        encoded_observation['global_obs'] = self.global_encoder(new_obs['global_obs'])
         encoded_observation['dice_obs'] = self.dice_encoder(new_obs['dice_obs'])
         encoded_observation['character_obs'] = torch.cat([
             self.character_encoder(new_obs['character_obs']),
@@ -120,8 +136,9 @@ class ObservationEncoder(nn.Module):
         
         return encoded_observation
 
-    def process_obs(self, obs_list:list):
+    def process_obs(self, obs_list:list, last_action_list):
         batch_size = len(obs_list)
+        global_obs_list = []
         dice_obs_list = []
         character_obs_list = []
         skill_obs_list = []
@@ -133,8 +150,19 @@ class ObservationEncoder(nn.Module):
         card_other_info_list = []
         summoner_other_info_list = []
         supporter_other_info_list = []
-        for obs in obs_list:
+        for obs, last_action in zip(obs_list, last_action_list):
             obs = obs.to(torch.float32)
+            last_action = last_action.to(torch.float32)
+            global_obs = torch.cat([
+                obs.last_play,
+                obs.dice_num,
+                obs.card_num,
+                obs.enemy_card_num,
+                last_action.action_type.unsqueeze(0),
+                last_action.action_args.unsqueeze(0)
+            ])
+            global_obs_list.append(global_obs)
+
             dice_obs = torch.cat([
                 obs.dice_num,
                 obs.opposite_dice_num,
@@ -197,6 +225,7 @@ class ObservationEncoder(nn.Module):
             supporter_obs_list.append(supporter_obs)
             supporter_other_info_list.append(obs.supporter_other_info)
 
+        global_obs = torch.stack(global_obs_list, dim=0)
         dice_obs = torch.stack(dice_obs_list, dim=0)
         character_obs = torch.stack(character_obs_list, dim=0)
         skill_obs = torch.stack(skill_obs_list, dim=0)
@@ -211,6 +240,7 @@ class ObservationEncoder(nn.Module):
         supporter_other_info_obs = torch.stack(supporter_other_info_list, dim=0)
 
         return {
+            'global_obs': global_obs,
             'dice_obs': dice_obs,
             'character_obs': character_obs,
             'skill_obs': skill_obs,

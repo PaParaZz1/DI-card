@@ -66,7 +66,9 @@ if __name__ == "__main__":
     # print([v.shape for v in obs.values()])
     obs_encoder = ObservationEncoder(env.observation_space)
     batch_obs = [obs.tensor() for i in range(8)]
-    encoded_obs = obs_encoder(batch_obs)
+    last_action = env.action_space.sample(obs=obs)
+    batch_last_action = [last_action.tensor() for i in range(8)]
+    encoded_obs = obs_encoder(batch_obs, batch_last_action)
     flatten_obs = tnp.concatenate(list(obs.values()))
     print(flatten_obs.shape)
     for _ in range(5):
