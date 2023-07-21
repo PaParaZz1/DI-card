@@ -2,6 +2,7 @@ import treetensor.torch as ttorch
 import torch
 import torch.nn as nn
 from obs import ObservationSpace
+from ding.torch_utils.network import VectorMerge
 
 class SubObsEncoder(nn.Module):
     def __init__(self, input_size, output_size=256, hidden_size=64):
@@ -107,34 +108,43 @@ class ObservationEncoder(nn.Module):
         self.card_encoder = CardObsEncoder(obs_space)
         self.summoner_encoder = SummonerObsEncoder(obs_space)
         self.supporter_encoder = SupporterObsEncoder(obs_space)
+        self.init_merge_flag = False
         
     def forward(self, observation:list, last_action:list):
-        encoded_observation = {}
+        encoded_obs = {}
         new_obs = self.process_obs(observation,last_action)
-        encoded_observation['global_obs'] = self.global_encoder(new_obs['global_obs'])
-        encoded_observation['dice_obs'] = self.dice_encoder(new_obs['dice_obs'])
-        encoded_observation['character_obs'] = torch.cat([
+        encoded_obs['global_obs'] = self.global_encoder(new_obs['global_obs'])
+        encoded_obs['dice_obs'] = self.dice_encoder(new_obs['dice_obs'])
+        encoded_obs['character_obs'] = torch.cat([
             self.character_encoder(new_obs['character_obs']),
             new_obs['character_other_info_obs']
         ], dim=1)
-        encoded_observation['skill_obs'] = torch.cat([
+        encoded_obs['skill_obs'] = torch.cat([
             self.skill_encoder(new_obs['skill_obs']),
             new_obs['skill_other_info_obs']
         ], dim=1)
-        encoded_observation['card_obs'] = torch.cat([
+        encoded_obs['card_obs'] = torch.cat([
             self.card_encoder(new_obs['card_obs']),
             new_obs['card_other_info_obs']
         ], dim=1)
-        encoded_observation['summoner_obs'] = torch.cat([
+        encoded_obs['summoner_obs'] = torch.cat([
             self.summoner_encoder(new_obs['summoner_obs']),
             new_obs['summoner_other_info_obs']
         ], dim=1)
-        encoded_observation['supporter_obs'] = torch.cat([
+        encoded_obs['supporter_obs'] = torch.cat([
             self.supporter_encoder(new_obs['supporter_obs']),
             new_obs['supporter_other_info_obs']
         ], dim=1)
-        
-        return encoded_observation
+
+        # merge all obs
+        if not self.init_merge_flag:
+            obs_input_sizes = {}
+            for key,value in encoded_obs.items():
+                obs_input_sizes[key] = value.shape[-1]
+            self.obs_merge = VectorMerge(input_sizes=obs_input_sizes, output_size=256)
+        merged_obs = self.obs_merge(encoded_obs)
+
+        return merged_obs
 
     def process_obs(self, obs_list:list, last_action_list):
         batch_size = len(obs_list)

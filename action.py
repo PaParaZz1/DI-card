@@ -167,7 +167,8 @@ class ActionSpace(gym.spaces.Dict):
         elif action_type == 3:  # switch role
             action_args = self['action_arg_space']['switch_character'].sample(mask=character_mask)  # Randomly select args for switch role
         else:  # end round
-            action_args = None
+            # action_args = None
+            action_args = -1
         return tnp.array({'action_type': action_type, 'action_args': action_args})
   
     # def sample(self, obs) -> tnp.ndarray:
