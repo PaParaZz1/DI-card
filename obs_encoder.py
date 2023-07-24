@@ -1,6 +1,7 @@
 import treetensor.torch as ttorch
 import torch
 import torch.nn as nn
+from ding.torch_utils import to_device
 from obs import ObservationSpace
 from ding.torch_utils.network import VectorMerge
 
@@ -20,6 +21,7 @@ class SubObsEncoder(nn.Module):
 class DiceObsEncoder(nn.Module):
     def __init__(self, obs_space, output_size=256):
         super(DiceObsEncoder, self).__init__()
+        self.output_size = output_size
         # (10,)
         self.dice_obs_shape = 10
         self.encoder = SubObsEncoder(input_size=self.dice_obs_shape, output_size=output_size)
@@ -31,7 +33,7 @@ class DiceObsEncoder(nn.Module):
 class CharacterObsEncoder(nn.Module):
     def __init__(self, obs_space, output_size=256):
         super(CharacterObsEncoder, self).__init__()
-
+        self.output_size = output_size
         self.characters_obs_shape = obs_space.character_is_alive.shape[0]*10
         self.encoder = SubObsEncoder(input_size=self.characters_obs_shape, output_size=output_size)
         
@@ -42,7 +44,7 @@ class CharacterObsEncoder(nn.Module):
 class SkillObsEncoder(nn.Module):
     def __init__(self, obs_space, output_size=256):
         super(SkillObsEncoder, self).__init__()
-
+        self.output_size = output_size
         self.skills_obs_shape = obs_space.skill_is_available.shape[0]*3
         self.encoder = SubObsEncoder(input_size=self.skills_obs_shape, output_size=output_size)
         
@@ -53,7 +55,7 @@ class SkillObsEncoder(nn.Module):
 class CardObsEncoder(nn.Module):
     def __init__(self, obs_space, output_size=256):
         super(CardObsEncoder, self).__init__()
-
+        self.output_size = output_size
         self.cards_obs_shape = obs_space.card_is_available.shape[0]*4
         self.encoder = SubObsEncoder(input_size=self.cards_obs_shape, output_size=output_size)
         
@@ -64,7 +66,7 @@ class CardObsEncoder(nn.Module):
 class SummonerObsEncoder(nn.Module):
     def __init__(self, obs_space, output_size=256):
         super(SummonerObsEncoder, self).__init__()
-
+        self.output_size = output_size
         self.summoners_obs_shape = obs_space.summoner_is_available.shape[0]*3
         self.encoder = SubObsEncoder(input_size=self.summoners_obs_shape, output_size=output_size)
         
@@ -75,7 +77,7 @@ class SummonerObsEncoder(nn.Module):
 class SupporterObsEncoder(nn.Module):
     def __init__(self, obs_space, output_size=256):
         super(SupporterObsEncoder, self).__init__()
-
+        self.output_size = output_size
         self.supporters_obs_shape = obs_space.supporter_is_available.shape[0]*3
         self.encoder = SubObsEncoder(input_size=self.supporters_obs_shape, output_size=output_size)
         
@@ -85,6 +87,7 @@ class SupporterObsEncoder(nn.Module):
 class GlobalObsEncoder(nn.Module):
     def __init__(self, input_size, output_size=256, hidden_size=256):
         super(GlobalObsEncoder, self).__init__()
+        self.output_size = output_size
         self.encoder = nn.Sequential(
             nn.Linear(input_size, hidden_size),
             nn.ReLU(),
@@ -96,11 +99,11 @@ class GlobalObsEncoder(nn.Module):
         return self.encoder(gloabl_obs)
 
 class ObservationEncoder(nn.Module):
-    def __init__(self, obs_space:ObservationSpace):
+    def __init__(self, obs_space:ObservationSpace, output_size=256, hidden_size=256, device='cpu'):
         super(ObservationEncoder, self).__init__()
 
         # global obs
-        self.global_encoder = GlobalObsEncoder(input_size=6)
+        self.global_encoder = GlobalObsEncoder(input_size=19)
         # sub-obs
         self.dice_encoder = DiceObsEncoder(obs_space)
         self.character_encoder = CharacterObsEncoder(obs_space)
@@ -108,7 +111,19 @@ class ObservationEncoder(nn.Module):
         self.card_encoder = CardObsEncoder(obs_space)
         self.summoner_encoder = SummonerObsEncoder(obs_space)
         self.supporter_encoder = SupporterObsEncoder(obs_space)
-        self.init_merge_flag = False
+        # merge
+        obs_input_sizes = {
+            'global_obs': self.global_encoder.output_size,
+            'dice_obs': self.dice_encoder.output_size,
+            'character_obs': self.character_encoder.output_size+obs_space.character_other_info.shape[0],
+            'skill_obs': self.skill_encoder.output_size+obs_space.skill_other_info.shape[0],
+            'card_obs': self.card_encoder.output_size+obs_space.card_other_info.shape[0],
+            'summoner_obs': self.summoner_encoder.output_size+obs_space.summoner_other_info.shape[0],
+            'supporter_obs': self.supporter_encoder.output_size+obs_space.supporter_other_info.shape[0],
+        }
+        self.obs_merge = VectorMerge(input_sizes=obs_input_sizes, output_size=output_size)
+        self._device = device
+        to_device(self, self._device)
         
     def forward(self, observation:list, last_action:list):
         encoded_obs = {}
@@ -137,11 +152,6 @@ class ObservationEncoder(nn.Module):
         ], dim=1)
 
         # merge all obs
-        if not self.init_merge_flag:
-            obs_input_sizes = {}
-            for key,value in encoded_obs.items():
-                obs_input_sizes[key] = value.shape[-1]
-            self.obs_merge = VectorMerge(input_sizes=obs_input_sizes, output_size=256)
         merged_obs = self.obs_merge(encoded_obs)
 
         return merged_obs
@@ -160,16 +170,23 @@ class ObservationEncoder(nn.Module):
         card_other_info_list = []
         summoner_other_info_list = []
         supporter_other_info_list = []
+        obs_list = to_device(obs_list,self._device)
+        last_action_list = to_device(last_action_list,self._device)
         for obs, last_action in zip(obs_list, last_action_list):
             obs = obs.to(torch.float32)
-            last_action = last_action.to(torch.float32)
+            last_action_type_one_hot = nn.functional.one_hot(last_action.action_type.to(torch.int64), num_classes=5).to(torch.float32)
+            if last_action.action_args == -1:
+                last_action_args_one_hot = to_device(torch.zeros((10,)),self._device)
+            else:
+                last_action_args_one_hot = nn.functional.one_hot(last_action.action_args.to(torch.int64), num_classes=10).to(torch.float32)
+            # last_action = last_action.to(torch.float32)
             global_obs = torch.cat([
                 obs.last_play,
                 obs.dice_num,
                 obs.card_num,
                 obs.enemy_card_num,
-                last_action.action_type.unsqueeze(0),
-                last_action.action_args.unsqueeze(0)
+                last_action_type_one_hot,
+                last_action_args_one_hot
             ])
             global_obs_list.append(global_obs)
 

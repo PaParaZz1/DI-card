@@ -2,6 +2,7 @@ from typing import Optional, List
 import gym
 import numpy as np
 import treetensor.numpy as tnp
+from ding.torch_utils import to_device
 from obs import get_observation_space, Character, Card
 from action import get_action_space, BasicRuleUtilities
 from obs_encoder import ObservationEncoder
@@ -64,10 +65,11 @@ if __name__ == "__main__":
     obs = env.observation_space.sample()
     print(obs)
     # print([v.shape for v in obs.values()])
-    obs_encoder = ObservationEncoder(env.observation_space)
+    # obs_encoder = to_device(ObservationEncoder(env.observation_space),'cuda')
+    obs_encoder = ObservationEncoder(env.observation_space,device='cuda')
     batch_obs = [obs.tensor() for i in range(8)]
     last_action = env.action_space.sample(obs=obs)
-    batch_last_action = [last_action.tensor() for i in range(8)]
+    batch_last_action = [env.action_space.sample(obs=obs).tensor() for i in range(8)]
     encoded_obs = obs_encoder(batch_obs, batch_last_action)
     flatten_obs = tnp.concatenate(list(obs.values()))
     print(flatten_obs.shape)
