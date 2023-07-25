@@ -99,11 +99,11 @@ class GlobalObsEncoder(nn.Module):
         return self.encoder(gloabl_obs)
 
 class ObservationEncoder(nn.Module):
-    def __init__(self, obs_space:ObservationSpace, output_size=256, hidden_size=256, device='cpu'):
+    def __init__(self, obs_space:ObservationSpace, output_size=256, hidden_size=256):
         super(ObservationEncoder, self).__init__()
 
         # global obs
-        self.global_encoder = GlobalObsEncoder(input_size=19)
+        self.global_encoder = GlobalObsEncoder(input_size=56)
         # sub-obs
         self.dice_encoder = DiceObsEncoder(obs_space)
         self.character_encoder = CharacterObsEncoder(obs_space)
@@ -122,8 +122,6 @@ class ObservationEncoder(nn.Module):
             'supporter_obs': self.supporter_encoder.output_size+obs_space.supporter_other_info.shape[0],
         }
         self.obs_merge = VectorMerge(input_sizes=obs_input_sizes, output_size=output_size)
-        self._device = device
-        to_device(self, self._device)
         
     def forward(self, observation:list, last_action:list):
         encoded_obs = {}
@@ -170,21 +168,24 @@ class ObservationEncoder(nn.Module):
         card_other_info_list = []
         summoner_other_info_list = []
         supporter_other_info_list = []
-        obs_list = to_device(obs_list,self._device)
-        last_action_list = to_device(last_action_list,self._device)
+
         for obs, last_action in zip(obs_list, last_action_list):
             obs = obs.to(torch.float32)
+            # One-hot encoding for global obs
             last_action_type_one_hot = nn.functional.one_hot(last_action.action_type.to(torch.int64), num_classes=5).to(torch.float32)
             if last_action.action_args == -1:
-                last_action_args_one_hot = to_device(torch.zeros((10,)),self._device)
+                last_action_args_one_hot = to_device(torch.zeros((10,)), last_action.action_args.device)
             else:
                 last_action_args_one_hot = nn.functional.one_hot(last_action.action_args.to(torch.int64), num_classes=10).to(torch.float32)
-            # last_action = last_action.to(torch.float32)
+            last_play_one_hot = nn.functional.one_hot((obs.last_play+1).to(torch.int64), num_classes=2).to(torch.float32)   # obs.last_play will be -1/1
+            dice_num_one_hot = nn.functional.one_hot(obs.dice_num.to(torch.int64), num_classes=17).to(torch.float32)
+            card_num_one_hot = nn.functional.one_hot(obs.card_num.to(torch.int64), num_classes=11).to(torch.float32)
+            enemy_card_num_one_hot = nn.functional.one_hot(obs.enemy_card_num.to(torch.int64), num_classes=11).to(torch.float32)
             global_obs = torch.cat([
-                obs.last_play,
-                obs.dice_num,
-                obs.card_num,
-                obs.enemy_card_num,
+                last_play_one_hot.squeeze(0),
+                dice_num_one_hot.squeeze(0),
+                card_num_one_hot.squeeze(0),
+                enemy_card_num_one_hot.squeeze(0),
                 last_action_type_one_hot,
                 last_action_args_one_hot
             ])

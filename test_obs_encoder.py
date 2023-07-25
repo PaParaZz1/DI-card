@@ -21,10 +21,12 @@ class TestObservationEncoder:
         env = GenshinCardEnv(env_id=None, character_list=None, card_list=None)
         # obs = env.observation_space.sample()
         # print(obs)
-        obs_encoder = ObservationEncoder(env.observation_space, output_size=embedding_size, device=test_device)
+        obs_encoder = to_device(ObservationEncoder(env.observation_space, output_size=embedding_size), test_device)
         batch_obs = [env.observation_space.sample() for i in range(B)]
-        batch_last_action = [env.action_space.sample(obs=obs).tensor() for obs in batch_obs]
-        batch_obs_tensor = [obs.tensor() for obs in batch_obs]
+        batch_last_action = to_device([env.action_space.sample(obs=obs).tensor() for obs in batch_obs], test_device)
+        batch_obs_tensor = to_device([obs.tensor() for obs in batch_obs], test_device)
+        for obs,last_action in zip(batch_obs_tensor, batch_last_action):
+            print(obs, last_action)
         encoded_obs = obs_encoder(batch_obs_tensor, batch_last_action)
         assert encoded_obs.shape == (B, embedding_size), 'shape of encoded_obs wrong'
 

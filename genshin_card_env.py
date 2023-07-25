@@ -64,16 +64,18 @@ if __name__ == "__main__":
     env = GenshinCardEnv(env_id=None, character_list=None, card_list=None)
     obs = env.observation_space.sample()
     print(obs)
-    # print([v.shape for v in obs.values()])
-    # obs_encoder = to_device(ObservationEncoder(env.observation_space),'cuda')
-    obs_encoder = ObservationEncoder(env.observation_space,device='cuda')
-    batch_obs = [obs.tensor() for i in range(8)]
-    last_action = env.action_space.sample(obs=obs)
-    batch_last_action = [env.action_space.sample(obs=obs).tensor() for i in range(8)]
-    encoded_obs = obs_encoder(batch_obs, batch_last_action)
+    print([v.shape for v in obs.values()])
     flatten_obs = tnp.concatenate(list(obs.values()))
     print(flatten_obs.shape)
     for _ in range(5):
         action = env.action_space.sample(obs=obs)
         print(action)
+    batch_size = 8
+    embedding_size = 256
+    obs_encoder = to_device(ObservationEncoder(env.observation_space,output_size=embedding_size),'cuda')
+    batch_obs = to_device([obs.tensor() for i in range(batch_size)],'cuda')
+    last_action = env.action_space.sample(obs=obs)
+    batch_last_action = to_device([env.action_space.sample(obs=obs).tensor() for i in range(batch_size)],'cuda')
+    encoded_obs = obs_encoder(batch_obs, batch_last_action)
+    assert encoded_obs.shape == (batch_size, embedding_size), 'shape of encoded_obs wrong'
     print('end')
