@@ -74,7 +74,6 @@ if __name__ == "__main__":
     embedding_size = 256
     obs_encoder = to_device(ObservationEncoder(env.observation_space,output_size=embedding_size),'cuda')
     batch_obs = to_device([obs.tensor() for i in range(batch_size)],'cuda')
-    last_action = env.action_space.sample(obs=obs)
     batch_last_action = to_device([env.action_space.sample(obs=obs).tensor() for i in range(batch_size)],'cuda')
     encoded_obs = obs_encoder(batch_obs, batch_last_action)
     assert encoded_obs.shape == (batch_size, embedding_size), 'shape of encoded_obs wrong'

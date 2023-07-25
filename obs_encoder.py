@@ -173,11 +173,11 @@ class ObservationEncoder(nn.Module):
             obs = obs.to(torch.float32)
             # One-hot encoding for global obs
             last_action_type_one_hot = nn.functional.one_hot(last_action.action_type.to(torch.int64), num_classes=5).to(torch.float32)
-            if last_action.action_args == -1:
-                last_action_args_one_hot = to_device(torch.zeros((10,)), last_action.action_args.device)
+            if last_action.action_args.item() == -1:
+                last_action_args_one_hot = torch.zeros((10,),device=last_action.action_args.device)
             else:
                 last_action_args_one_hot = nn.functional.one_hot(last_action.action_args.to(torch.int64), num_classes=10).to(torch.float32)
-            last_play_one_hot = nn.functional.one_hot((obs.last_play+1).to(torch.int64), num_classes=2).to(torch.float32)   # obs.last_play will be -1/1
+            last_play_one_hot = nn.functional.one_hot(((obs.last_play+2)%2).to(torch.int64), num_classes=2).to(torch.float32)   # obs.last_play will be -1/1
             dice_num_one_hot = nn.functional.one_hot(obs.dice_num.to(torch.int64), num_classes=17).to(torch.float32)
             card_num_one_hot = nn.functional.one_hot(obs.card_num.to(torch.int64), num_classes=11).to(torch.float32)
             enemy_card_num_one_hot = nn.functional.one_hot(obs.enemy_card_num.to(torch.int64), num_classes=11).to(torch.float32)
