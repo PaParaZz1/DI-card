@@ -1,12 +1,18 @@
-import treetensor.torch as ttorch
+from typing import Union, Optional, Dict, Callable, List
 import torch
 import torch.nn as nn
-from ding.torch_utils import to_device
-from obs import ObservationSpace
+import treetensor.torch as ttorch
 from ding.torch_utils.network import VectorMerge
+from ding.utils import SequenceType
+from obs import ObservationSpace
+
 
 class SubObsEncoder(nn.Module):
-    def __init__(self, input_size, output_size=256, hidden_size=64):
+    r"""
+    Overview:
+        Encoder structure shared by other encoders except global_obs.
+    """
+    def __init__(self, input_size: int, output_size: int =256, hidden_size: Union[int, SequenceType] = 64):
         super(SubObsEncoder, self).__init__()
         self.sub_encoder = nn.Sequential(
             nn.Linear(input_size, hidden_size),
@@ -19,7 +25,11 @@ class SubObsEncoder(nn.Module):
         return self.sub_encoder(sub_obs)
 
 class DiceObsEncoder(nn.Module):
-    def __init__(self, obs_space, output_size=256):
+    r"""
+    Overview:
+        Encoder that encodes dice_obs.
+    """
+    def __init__(self, obs_space: ObservationSpace, output_size: int = 256):
         super(DiceObsEncoder, self).__init__()
         self.output_size = output_size
         # (10,)
@@ -31,7 +41,11 @@ class DiceObsEncoder(nn.Module):
 
 
 class CharacterObsEncoder(nn.Module):
-    def __init__(self, obs_space, output_size=256):
+    r"""
+    Overview:
+        Encoder that encodes character_obs.
+    """
+    def __init__(self, obs_space: ObservationSpace, output_size: int = 256):
         super(CharacterObsEncoder, self).__init__()
         self.output_size = output_size
         self.characters_obs_shape = obs_space.character_is_alive.shape[0]*10
@@ -42,7 +56,11 @@ class CharacterObsEncoder(nn.Module):
 
 
 class SkillObsEncoder(nn.Module):
-    def __init__(self, obs_space, output_size=256):
+    r"""
+    Overview:
+        Encoder that encodes skill_obs.
+    """
+    def __init__(self, obs_space: ObservationSpace, output_size: int = 256):
         super(SkillObsEncoder, self).__init__()
         self.output_size = output_size
         self.skills_obs_shape = obs_space.skill_is_available.shape[0]*3
@@ -53,7 +71,11 @@ class SkillObsEncoder(nn.Module):
 
 
 class CardObsEncoder(nn.Module):
-    def __init__(self, obs_space, output_size=256):
+    r"""
+    Overview:
+        Encoder that encodes card_obs.
+    """
+    def __init__(self, obs_space: ObservationSpace, output_size: int = 256):
         super(CardObsEncoder, self).__init__()
         self.output_size = output_size
         self.cards_obs_shape = obs_space.card_is_available.shape[0]*4
@@ -64,7 +86,11 @@ class CardObsEncoder(nn.Module):
 
 
 class SummonerObsEncoder(nn.Module):
-    def __init__(self, obs_space, output_size=256):
+    r"""
+    Overview:
+        Encoder that encodes summoner_obs.
+    """
+    def __init__(self, obs_space: ObservationSpace, output_size: int = 256):
         super(SummonerObsEncoder, self).__init__()
         self.output_size = output_size
         self.summoners_obs_shape = obs_space.summoner_is_available.shape[0]*3
@@ -75,7 +101,11 @@ class SummonerObsEncoder(nn.Module):
 
 
 class SupporterObsEncoder(nn.Module):
-    def __init__(self, obs_space, output_size=256):
+    r"""
+    Overview:
+        Encoder that encodes supporter_obs.
+    """
+    def __init__(self, obs_space: ObservationSpace, output_size: int = 256):
         super(SupporterObsEncoder, self).__init__()
         self.output_size = output_size
         self.supporters_obs_shape = obs_space.supporter_is_available.shape[0]*3
@@ -85,7 +115,11 @@ class SupporterObsEncoder(nn.Module):
         return self.encoder(supporter_obs)
 
 class GlobalObsEncoder(nn.Module):
-    def __init__(self, input_size, output_size=256, hidden_size=256):
+    r"""
+    Overview:
+        Encoder that encodes global_obs.
+    """
+    def __init__(self, input_size: ObservationSpace, output_size: int = 256, hidden_size: Union[int, SequenceType] = 256):
         super(GlobalObsEncoder, self).__init__()
         self.output_size = output_size
         self.encoder = nn.Sequential(
@@ -99,10 +133,14 @@ class GlobalObsEncoder(nn.Module):
         return self.encoder(gloabl_obs)
 
 class ObservationEncoder(nn.Module):
+    r"""
+    Overview:
+        Encoder that processes and encodes the overall obs.
+    """
     def __init__(self, obs_space:ObservationSpace, output_size=256, hidden_size=256):
         super(ObservationEncoder, self).__init__()
 
-        # global obs
+        # global obs (56,): one-hot last_play(2,), dice_num, (17, ), card_num, (11,), enemy_card_num (11,)
         self.global_encoder = GlobalObsEncoder(input_size=56)
         # sub-obs
         self.dice_encoder = DiceObsEncoder(obs_space)
@@ -111,6 +149,15 @@ class ObservationEncoder(nn.Module):
         self.card_encoder = CardObsEncoder(obs_space)
         self.summoner_encoder = SummonerObsEncoder(obs_space)
         self.supporter_encoder = SupporterObsEncoder(obs_space)
+        self.encoders = {
+            'global': self.global_encoder,
+            'dice': self.dice_encoder,
+            'character': self.character_encoder,
+            'skill': self.skill_encoder,
+            'card': self.card_encoder,
+            'summoner': self.summoner_encoder,
+            'supporter': self.supporter_encoder
+        }
         # merge
         obs_input_sizes = {
             'global_obs': self.global_encoder.output_size,
@@ -126,48 +173,35 @@ class ObservationEncoder(nn.Module):
     def forward(self, observation:list, last_action:list):
         encoded_obs = {}
         new_obs = self.process_obs(observation,last_action)
-        encoded_obs['global_obs'] = self.global_encoder(new_obs['global_obs'])
-        encoded_obs['dice_obs'] = self.dice_encoder(new_obs['dice_obs'])
-        encoded_obs['character_obs'] = torch.cat([
-            self.character_encoder(new_obs['character_obs']),
-            new_obs['character_other_info_obs']
-        ], dim=1)
-        encoded_obs['skill_obs'] = torch.cat([
-            self.skill_encoder(new_obs['skill_obs']),
-            new_obs['skill_other_info_obs']
-        ], dim=1)
-        encoded_obs['card_obs'] = torch.cat([
-            self.card_encoder(new_obs['card_obs']),
-            new_obs['card_other_info_obs']
-        ], dim=1)
-        encoded_obs['summoner_obs'] = torch.cat([
-            self.summoner_encoder(new_obs['summoner_obs']),
-            new_obs['summoner_other_info_obs']
-        ], dim=1)
-        encoded_obs['supporter_obs'] = torch.cat([
-            self.supporter_encoder(new_obs['supporter_obs']),
-            new_obs['supporter_other_info_obs']
-        ], dim=1)
-
+        # Handle global and dice separately as they don't need concatenation
+        encoded_obs['global_obs'] = self.encoders['global'](new_obs['global_obs'])
+        encoded_obs['dice_obs'] = self.encoders['dice'](new_obs['dice_obs'])
+        # Loop over the rest of the keys
+        for key in ['character', 'skill', 'card', 'summoner', 'supporter']:
+            encoded_obs[f'{key}_obs'] = torch.cat([
+                self.encoders[key](new_obs[f'{key}_obs']),
+                new_obs[f'{key}_other_info_obs']
+            ], dim=1)
         # merge all obs
         merged_obs = self.obs_merge(encoded_obs)
 
         return merged_obs
 
     def process_obs(self, obs_list:list, last_action_list):
-        batch_size = len(obs_list)
-        global_obs_list = []
-        dice_obs_list = []
-        character_obs_list = []
-        skill_obs_list = []
-        card_obs_list = []
-        summoner_obs_list = []
-        supporter_obs_list = []
-        character_other_info_list = []
-        skill_other_info_list = []
-        card_other_info_list = []
-        summoner_other_info_list = []
-        supporter_other_info_list = []
+        processed_obs_lists = {
+            "global_obs": [],
+            "dice_obs": [],
+            "character_obs": [],
+            "skill_obs": [],
+            "card_obs": [],
+            "summoner_obs": [],
+            "supporter_obs": [],
+            "character_other_info_obs": [],
+            "skill_other_info_obs": [],
+            "card_other_info_obs": [],
+            "summoner_other_info_obs": [],
+            "supporter_other_info_obs": [],
+        }
 
         for obs, last_action in zip(obs_list, last_action_list):
             obs = obs.to(torch.float32)
@@ -189,7 +223,7 @@ class ObservationEncoder(nn.Module):
                 last_action_type_one_hot,
                 last_action_args_one_hot
             ])
-            global_obs_list.append(global_obs)
+            processed_obs_lists['global_obs'].append(global_obs)
 
             dice_obs = torch.cat([
                 obs.dice_num,
@@ -203,7 +237,7 @@ class ObservationEncoder(nn.Module):
                 obs.anemo_dice_num,
                 obs.dendro_dice_num
             ], dim=0)   # (10)
-            dice_obs_list.append(dice_obs)
+            processed_obs_lists['dice_obs'].append(dice_obs)
 
             character_obs = torch.cat([
                 obs.character_is_alive,
@@ -216,69 +250,45 @@ class ObservationEncoder(nn.Module):
                 obs.character_is_enemy,
                 obs.character_element_attachment,
                 obs.character_is_full
-            ], dim=0)   # (10*character_num)
-            character_obs_list.append(character_obs)
-            character_other_info_list.append(obs.character_other_info)
+            ], dim=0)  # (10*character_num)
+            processed_obs_lists['character_obs'].append(character_obs)
+            processed_obs_lists['character_other_info_obs'].append(obs.character_other_info)
 
             skill_obs = torch.cat([
                 obs.skill_is_available,
                 obs.skill_is_charge,
                 obs.skill_direct_damage,
-            ], dim=0)   # (3*max_skill_num )
-            skill_obs_list.append(skill_obs)
-            skill_other_info_list.append(obs.skill_other_info)
+            ], dim=0)  # (3*max_skill_num )
+            processed_obs_lists['skill_obs'].append(skill_obs)
+            processed_obs_lists['skill_other_info_obs'].append(obs.skill_other_info)
 
             card_obs = torch.cat([
                 obs.card_is_available,
                 obs.card_is_same_dice,
                 obs.card_dice_cost,
                 obs.card_type,
-            ], dim=0)   # (4*max_usable_card_num)
-            card_obs_list.append(card_obs)
-            card_other_info_list.append(obs.card_other_info)
+            ], dim=0)  # (4*max_usable_card_num)
+            processed_obs_lists['card_obs'].append(card_obs)
+            processed_obs_lists['card_other_info_obs'].append(obs.card_other_info)
 
             summoner_obs = torch.cat([
                 obs.summoner_is_available,
                 obs.summoner_is_enemy,
                 obs.summoner_remain_turn,
             ], dim=0)   # (3*max_summoner_num)
-            summoner_obs_list.append(summoner_obs)
-            summoner_other_info_list.append(obs.summoner_other_info)
+            processed_obs_lists['summoner_obs'].append(summoner_obs)
+            processed_obs_lists['summoner_other_info_obs'].append(obs.summoner_other_info)
             
             supporter_obs = torch.cat([
                 obs.supporter_is_available,
                 obs.supporter_is_enemy,
                 obs.supporter_count,
-            ], dim=0)   # (3*max_supporter_num)
-            supporter_obs_list.append(supporter_obs)
-            supporter_other_info_list.append(obs.supporter_other_info)
+            ], dim=0)  # (3*max_supporter_num)
+            processed_obs_lists['supporter_obs'].append(supporter_obs)
+            processed_obs_lists['supporter_other_info_obs'].append(obs.supporter_other_info)
 
-        global_obs = torch.stack(global_obs_list, dim=0)
-        dice_obs = torch.stack(dice_obs_list, dim=0)
-        character_obs = torch.stack(character_obs_list, dim=0)
-        skill_obs = torch.stack(skill_obs_list, dim=0)
-        card_obs = torch.stack(card_obs_list, dim=0)
-        summoner_obs = torch.stack(summoner_obs_list, dim=0)
-        supporter_obs = torch.stack(supporter_obs_list, dim=0)
+        processed_obs_stacks = {}
+        for key in processed_obs_lists.keys():
+            processed_obs_stacks[key] = torch.stack(processed_obs_lists[key], dim=0)
 
-        character_other_info_obs = torch.stack(character_other_info_list, dim=0)
-        skill_other_info_obs = torch.stack(skill_other_info_list, dim=0)
-        card_other_info_obs = torch.stack(card_other_info_list, dim=0)
-        summoner_other_info_obs = torch.stack(summoner_other_info_list, dim=0)
-        supporter_other_info_obs = torch.stack(supporter_other_info_list, dim=0)
-
-        return {
-            'global_obs': global_obs,
-            'dice_obs': dice_obs,
-            'character_obs': character_obs,
-            'skill_obs': skill_obs,
-            'card_obs': card_obs,
-            'summoner_obs': summoner_obs,
-            'supporter_obs': supporter_obs,
-            'character_other_info_obs': character_other_info_obs,
-            'skill_other_info_obs': skill_other_info_obs,
-            'card_other_info_obs': card_other_info_obs,
-            'summoner_other_info_obs': summoner_other_info_obs,
-            'supporter_other_info_obs': supporter_other_info_obs,
-        }
-
+        return processed_obs_stacks

@@ -15,7 +15,7 @@ class GenshinCardEnv(gym.Env):
         env_id: str,
         character_list: Optional[List[Character]],
         card_list: Optional[List[Card]],
-        max_card_num: int = 30,     # The deck contains 30 action cards
+        max_card_num: int = 30,  # The deck contains 30 action cards
         character_num: int = 3 * 2,  # our side and other side
         embedding_num: int = 32,
         max_skill_num: int = 4,
@@ -73,8 +73,8 @@ if __name__ == "__main__":
     batch_size = 8
     embedding_size = 256
     obs_encoder = to_device(ObservationEncoder(env.observation_space,output_size=embedding_size),'cuda')
-    batch_obs = to_device([obs.tensor() for i in range(batch_size)],'cuda')
+    batch_obs = to_device([env.observation_space.sample().tensor() for i in range(batch_size)],'cuda')
     batch_last_action = to_device([env.action_space.sample(obs=obs).tensor() for i in range(batch_size)],'cuda')
     encoded_obs = obs_encoder(batch_obs, batch_last_action)
-    assert encoded_obs.shape == (batch_size, embedding_size), 'shape of encoded_obs wrong'
+    assert encoded_obs.shape == (batch_size, embedding_size), 'shape of encoded_obs should be {}'.format((batch_size, embedding_size))
     print('end')

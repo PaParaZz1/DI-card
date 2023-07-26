@@ -28,7 +28,7 @@ class TestObservationEncoder:
         for obs,last_action in zip(batch_obs_tensor, batch_last_action):
             print(obs, last_action)
         encoded_obs = obs_encoder(batch_obs_tensor, batch_last_action)
-        assert encoded_obs.shape == (B, embedding_size), 'shape of encoded_obs wrong'
+        assert encoded_obs.shape == (B, embedding_size), 'Shape of encoded_obs should be {}'.format((B, embedding_size))
 
         is_differentiable(encoded_obs.sum(), obs_encoder)
         

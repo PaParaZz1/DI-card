@@ -1,7 +1,7 @@
-import gym
 from typing import List
 from dataclasses import dataclass
 import numpy as np
+import gym
 import treetensor.numpy as tnp
 from obs import Character, Card, ObservationSpace, ElementalDiceType
 
@@ -130,8 +130,8 @@ class ActionSpace(gym.spaces.Dict):
 
     def __init__(self):
 
-        action_type_space = gym.spaces.Discrete(5)     # play card/elemental harmony/use skill/switch role/end round
-        card_action_args_space = gym.spaces.Discrete(10) # 10 options for the argseter space of play card/elemental harmony
+        action_type_space = gym.spaces.Discrete(5)  # play card/elemental harmony/use skill/switch role/end round
+        card_action_args_space = gym.spaces.Discrete(10)  # 10 options for the argseter space of play card/elemental harmony
         skill_action_args_space = gym.spaces.Discrete(4)  # 3/4 options for arg space for use skills
         switch_character_action_args_space = gym.spaces.Discrete(3)  # 3 options for arg space for switch role
         action_arg_spaces = {
