@@ -1,35 +1,35 @@
 from typing import Optional, List, Tuple, Dict
+
 import gym
 import torch
 import treetensor.numpy as tnp
 from ding.torch_utils import to_device
-
-from gisim.game import Game
 from gisim.agent import AttackOnlyAgent, NoAttackAgent
 from gisim.classes.enums import GameStatus, PlayerID
+from gisim.game import Game, GameInfo
 
-from obs import get_observation_space, Character, Card
 from action import get_action_space
+from obs import get_observation_space, Character, Card
 from obs_encoder import ObservationEncoder
 
 
 class GenshinCardEnv(gym.Env):
 
     def __init__(
-        self,
-        env_id: str,
-        character_list: Optional[List[Character]],
-        card_list: Optional[List[Card]],
-        max_card_num: int = 30,  # The deck contains 30 action cards
-        character_num: int = 3 * 2,  # our side and other side
-        embedding_num: int = 32,
-        max_skill_num: int = 4,
-        max_usable_card_num: int = 10,
-        max_usable_dice_num: int = 16,
-        max_summoner_num: int = 4 * 2,  # our side and other side
-        max_supporter_num: int = 4 * 2,  # our side and other side
-        max_episode_count: Optional[int] = 100,
-        debug: bool = False,
+            self,
+            env_id: str,
+            character_list: Optional[List[Character]],
+            card_list: Optional[List[Card]],
+            max_card_num: int = 30,  # The deck contains 30 action cards
+            character_num: int = 3 * 2,  # our side and other side
+            embedding_num: int = 32,
+            max_skill_num: int = 4,
+            max_usable_card_num: int = 10,
+            max_usable_dice_num: int = 16,
+            max_summoner_num: int = 4 * 2,  # our side and other side
+            max_supporter_num: int = 4 * 2,  # our side and other side
+            max_episode_count: Optional[int] = 100,
+            debug: bool = False,
     ):
         self.env_id = env_id
         if self.env_id is None:
@@ -128,7 +128,9 @@ class GenshinCardEnv(gym.Env):
             info['truncated'] = True
         return done, info
 
-    def _get_obs(self, raw_game_info, last_action) -> tnp.ndarray:
+    def _get_obs(self, raw_game_info: GameInfo, last_action) -> tnp.ndarray:
+        print('raw_game_info:', raw_game_info)
+        print('last_action:', last_action)
         raise NotImplementedError
 
 
@@ -150,5 +152,6 @@ if __name__ == "__main__":
     batch_obs = to_device([env.observation_space.sample().tensor() for i in range(batch_size)], device)
     batch_last_action = to_device([env.action_space.sample(obs=obs).tensor() for i in range(batch_size)], device)
     encoded_obs = obs_encoder(batch_obs, batch_last_action)
-    assert encoded_obs.shape == (batch_size, embedding_size), 'shape of encoded_obs should be {}'.format((batch_size, embedding_size))
+    assert encoded_obs.shape == (batch_size, embedding_size), \
+        'shape of encoded_obs should be {}'.format((batch_size, embedding_size))
     print('end')

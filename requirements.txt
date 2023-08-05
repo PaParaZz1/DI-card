@@ -3,4 +3,5 @@ gym
 git+https://github.com/opendilab/DI-engine.git@main
 Di-treetensor
 torch
-
+numpy
+six
