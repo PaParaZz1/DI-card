@@ -159,7 +159,7 @@ class ObservationEncoder(nn.Module):
             'supporter': self.supporter_encoder
         }
         # merge
-        obs_input_sizes = {
+        self.obs_merge_input_sizes = {
             'global_obs': self.global_encoder.output_size,
             'dice_obs': self.dice_encoder.output_size,
             'character_obs': self.character_encoder.output_size+obs_space.character_other_info.shape[0],
@@ -168,7 +168,7 @@ class ObservationEncoder(nn.Module):
             'summoner_obs': self.summoner_encoder.output_size+obs_space.summoner_other_info.shape[0],
             'supporter_obs': self.supporter_encoder.output_size+obs_space.supporter_other_info.shape[0],
         }
-        self.obs_merge = VectorMerge(input_sizes=obs_input_sizes, output_size=output_size)
+        self.obs_merge = VectorMerge(input_sizes=self.obs_merge_input_sizes, output_size=output_size)
         
     def forward(self, observation:list, last_action:list):
         encoded_obs = {}
@@ -185,7 +185,7 @@ class ObservationEncoder(nn.Module):
         # merge all obs
         merged_obs = self.obs_merge(encoded_obs)
 
-        return merged_obs
+        return {'encoded_obs':encoded_obs, 'merged_obs':merged_obs}
 
     def process_obs(self, obs_list:list, last_action_list):
         processed_obs_lists = {
