@@ -151,7 +151,11 @@ class GenshinCardEnv(gym.Env):
         for i, ch in enumerate(player.characters):
             logging.info(f'character #{i}: {ch!r}, status: {ch.status}, talent: {ch.talent}, '
                          f'weapon: {ch.weapon}, artifact: {ch.artifact}')
-        # player.characters[0].character.alive
+        # print(player.characters[0].character.elemental_attachment)
+        print(player.characters[0].talent)
+        player.hand_cards[0]
+
+        quit()
 
         # player.support_zone[0].
         all_characters = [*player.characters, *op_player.characters]
@@ -185,7 +189,8 @@ class GenshinCardEnv(gym.Env):
             'character_weapon_type': [ch.weapon or 0 for ch in all_characters],
             'character_element_type': [0 for ch in all_characters],  # TODO
             'character_is_enemy': all_ch_enemy,
-            'character_element_attachment': [0 for ch in all_characters],  # TODO
+            'character_element_attachment': [0 for ch in all_characters],
+            # TODO, multiple elements are possible, 7 + 1 + 1
             'character_is_full': [1 if (ch.character.max_power and ch.character.power == ch.character.max_power) else 0
                                   for ch in all_characters],
             'character_other_info': np.clip(np.random.random((self.character_num * self.embedding_num,)),
@@ -200,7 +205,7 @@ class GenshinCardEnv(gym.Env):
             # skill_other_info = ((max_skill_num * embedding_num,), FeatureType.SCALAR, (-1, 1)),
             #     # TODO enemy skill information
             'skill_is_available': [1 for _ in range(self.max_skill_num)],  # TODO
-            'skill_is_charge': [0 for _ in range(self.max_skill_num)],  # TODO
+            'skill_is_charge': [0 for _ in range(self.max_skill_num)],  # TODO, need charge or not
             'skill_direct_damage': [0 for _ in range(self.max_skill_num)],  # TODO
             'skill_other_info': np.clip(np.random.random((self.max_skill_num * self.embedding_num,)),
                                         a_min=-1.0, a_max=1.0),  # TODO
@@ -213,9 +218,10 @@ class GenshinCardEnv(gym.Env):
             # card_num = ((1,), FeatureType.CATEGORICAL, (0, max_usable_card_num + 1)),
             # enemy_card_num = ((1,), FeatureType.CATEGORICAL, (0, max_usable_card_num + 1)),
             'card_is_available': [1 if i in range(len(player.hand_cards)) else 0
-                                  for i in range(self.max_usable_card_num)],
+                                  for i in range(self.max_usable_card_num)],  # TODO, card is possible to be unusable
             'card_is_same_dice': [1 if i in range(len(player.hand_cards)) else 0
-                                  for i in range(self.max_usable_card_num)],  # TODO
+                                  for i in range(self.max_usable_card_num)],
+            # TODO, some card will cost same, or some card not required
             'card_dice_cost': [1 if i in range(len(player.hand_cards)) else 0
                                for i in range(self.max_usable_card_num)],  # TODO
             'card_type': [0 for _ in range(self.max_usable_card_num)],  # TODO
