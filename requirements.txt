@@ -1,4 +1,5 @@
 git+https://github.com/PaParaZz1/genius-invokation-gym.git@dev-gym-env
+git+https://github.com/HansBug/genshin-nlp-encoding.git@main
 gym
 git+https://github.com/opendilab/DI-engine.git@main
 Di-treetensor
