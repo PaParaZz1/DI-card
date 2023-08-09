@@ -55,7 +55,7 @@ class GenshinVAC(nn.Module):
     # action_type_names is a dict corresponding to the sequence number and action type name
     # e.g {'play_card':0}
     action_type_names = {getattr(ActionType, attr): attr for attr in dir(ActionType) if not callable(getattr(ActionType, attr)) and not attr.startswith("__")}
-    # action_obs_name_map is used to match action names and encoded_obs names
+    # action_obs_name_map is used to match action names and encoded_obs names for action_args_head
     action_obs_name_map = {'play_card':'card_obs','use_skill':'skill_obs', 'change_character': 'character_obs'}
     def __init__(
         self,
@@ -64,7 +64,7 @@ class GenshinVAC(nn.Module):
         action_space: ActionSpace,
         encoded_obs_shape: Dict,    # Should correspond to obs_merge_input_sizes in ObservationEncoder
         # actor_head_hidden_size: int = 64,
-        # actor_head_layer_num: int = 1,
+        actor_head_layer_num: int = 1,
         critic_head_hidden_size: int = 64,
         critic_head_layer_num: int = 1,
         activation: Optional[nn.Module] = nn.ReLU(),
@@ -96,7 +96,7 @@ class GenshinVAC(nn.Module):
         # three action args heads: 'play_card', 'use_skill', 'change_character'
         self.actor_action_args = nn.ModuleDict({
             action_name: ActionArgHead(
-                encoded_part_obs_shape=encoded_obs_shape[action_obs_name_map[action_name]],    # e.g. encoded_obs_shape['card_obs']
+                encoded_part_obs_shape=encoded_obs_shape[self.action_obs_name_map[action_name]],    # e.g. encoded_obs_shape['card_obs']
                 obs_embedding_shape=obs_embedding_shape,
                 action_type_logit_shape=action_space['action_type_space'].n,
                 hidden_size=obs_embedding_shape
@@ -113,34 +113,37 @@ class GenshinVAC(nn.Module):
         self,
         obs_embedding,
         encoded_obs,
-        sample_action_type:str='argmax',
+        sample_action_type: str = 'argmax',
+        train_mode = False,
         ) -> Dict:
         # sample_action_type could be 'argmax' or 'normal'
-        assert sample_action_typein ["argmax", "normal"], "sample_action_type should be 'argmax' or 'normal'"
+        assert sample_action_type in ["argmax", "normal"], "sample_action_type should be 'argmax' or 'normal'"
         action_type_logit = self.actor_action_type(obs_embedding)['logit']
 
-        if sample_action_type == 'normal':
-            action_type = torch.multinomial(action_type_logit, 1).item()
-            select_action_name = action_type_names[action_type]
-            select_encoded_obs_name = action_obs_name_map[select_action_name]
-            action_args_logit = self.actor_action_args[select_action_name](
+        action_args_logit = {}
+        if train_mode:
+            # If it is training mode, output action_type and the distribution of a single action_arg
+            # selected by the corresponding sampling method
+            action_type = torch.multinomial(action_type_logit, 1).item() if sample_action_type == 'normal'\
+                            else torch.argmax(action_type_logit, 1).item()
+            select_action_name = self.action_type_names[action_type]
+            select_encoded_obs_name = self.action_obs_name_map[select_action_name]
+            action_args_logit[select_action_name] = self.actor_action_args[select_action_name](
                 obs_embedding=obs_embedding,
                 action_type_logit=action_type_logit,
                 encoded_part_obs=encoded_obs[select_encoded_obs_name]
+            )
+        else:
+            for action_type_name in self.action_obs_name_map.keys():
+                encoded_obs_name = self.action_obs_name_map[action_type_name]
+                action_args_logit[action_type_name] = self.actor_action_args[action_type_name](
+                    obs_embedding=obs_embedding,
+                    action_type_logit=action_type_logit,
+                    encoded_part_obs=encoded_obs[encoded_obs_name]
                 )
-            action_args = torch.multinomial(action_args_logit, 1).item()
-        elif sample_action_type == 'argmax':
-            action_type = torch.argmax(action_type_logit).item()
-            select_action_name = action_type_names[action_type]
-            select_encoded_obs_name = action_obs_name_map[select_action_name]
-            action_args_logit = self.actor_action_args[select_action_name](
-                obs_embedding=obs_embedding,
-                action_type_logit=action_type_logit,
-                encoded_part_obs=encoded_obs[select_encoded_obs_name]
-                )
-            action_args = torch.argmax(action_args_logit, 1).item()
-        
-        return {'logit': {'action_type': action_type, 'action_args': action_args}}
+        # action_type_logit: one distribution
+        # action_args(dict): 1 distribution(train mode)/3 distribution(test mode)
+        return {'logit': {'action_type': action_type_logit, 'action_args': action_args_logit}}
 
     def compute_critic(self, obs_embedding) -> Dict:
         x = self.critic_head(obs_embedding)
@@ -150,33 +153,35 @@ class GenshinVAC(nn.Module):
         self,
         obs_embedding,
         encoded_obs,
-        sample_action_type:str='argmax'
+        sample_action_type:str='argmax',
+        train_mode = False,
         ) -> Dict:
         value = self.critic_head(obs_embedding)['pred']
 
-        assert sample_action_typein ["argmax", "normal"], "sample_action_type should be 'argmax' or 'normal'"
+        assert sample_action_type in ["argmax", "normal"], "sample_action_type should be 'argmax' or 'normal'"
         action_type_logit = self.actor_action_type(obs_embedding)['logit']
 
-        if sample_action_type == 'normal':
-            action_type = torch.multinomial(action_type_logit, 1).item()
-            select_action_name = action_type_names[action_type]
-            select_encoded_obs_name = action_obs_name_map[select_action_name]
-            action_args_logit = self.actor_action_args[select_action_name](
+        action_args_logit = {}
+        if train_mode:
+            # If it is training mode, output action_type and the distribution of a single action_arg
+            # selected by the corresponding sampling method
+            action_type = torch.multinomial(action_type_logit, 1).item() if sample_action_type == 'normal'\
+                            else torch.argmax(action_type_logit, 1).item()
+            select_action_name = self.action_type_names[action_type]
+            select_encoded_obs_name = self.action_obs_name_map[select_action_name]
+            action_args_logit[select_action_name] = self.actor_action_args[select_action_name](
                 obs_embedding=obs_embedding,
                 action_type_logit=action_type_logit,
                 encoded_part_obs=encoded_obs[select_encoded_obs_name]
+            )
+        else:
+            for action_type_name in self.action_obs_name_map.keys():
+                encoded_obs_name = self.action_obs_name_map[action_type_name]
+                action_args_logit[action_type_name] = self.actor_action_args[action_type_name](
+                    obs_embedding=obs_embedding,
+                    action_type_logit=action_type_logit,
+                    encoded_part_obs=encoded_obs[encoded_obs_name]
                 )
-            action_args = torch.multinomial(action_args_logit, 1).item()
-        elif sample_action_type == 'argmax':
-            action_type = torch.argmax(action_type_logit).item()
-            select_action_name = action_type_names[action_type]
-            select_encoded_obs_name = action_obs_name_map[select_action_name]
-            action_args_logit = self.actor_action_args[select_action_name](
-                obs_embedding=obs_embedding,
-                action_type_logit=action_type_logit,
-                encoded_part_obs=encoded_obs[select_encoded_obs_name]
-                )
-            action_args = torch.argmax(action_args_logit, 1).item()
 
-        return {'logit': {'action_type': action_type, 'action_args': action_args}, 'value': value}
+        return {'logit': {'action_type': action_type_logit, 'action_args': action_args_logit}, 'value': value}
 
