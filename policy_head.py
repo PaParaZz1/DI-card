@@ -109,7 +109,7 @@ class GenshinVAC(nn.Module):
         self.actor = nn.ModuleList([self.actor_action_type, self.actor_action_args])
 
     def forward(self, inputs: Union[torch.Tensor, Dict], mode: str) -> Dict:
-        # 这里的参数怎么处理，有两套不同的参数
+        # TODO: How to deal with the parameters here, there are two different sets of parameters
         assert mode in self.mode, "not support forward mode: {}/{}".format(mode, self.mode)
         return getattr(self, mode)(inputs)
 
@@ -118,7 +118,6 @@ class GenshinVAC(nn.Module):
         obs_embedding,
         encoded_obs,
         sample_action_type: str = 'argmax',
-        train_mode = False,
         selected_action_type =None,     # action_type selected outside
         ) -> Dict:
         # sample_action_type could be 'argmax' or 'normal'
@@ -126,17 +125,17 @@ class GenshinVAC(nn.Module):
         action_type_logit = self.actor_action_type(obs_embedding)['logit']
         action_type_prob = torch.softmax(action_type_logit, dim=-1)
         if selected_action_type is not None:
-            action_type = selected_action_type  # 这里作用域不知道有没有问题
+            action_type = selected_action_type
         else:
             action_type = torch.multinomial(action_type_prob, 1).item() if sample_action_type == 'normal'\
                             else torch.argmax(action_type_prob, 1).item()
         action_args_logit = {}
-        if train_mode:
+        if self.training:
             # If it is training mode, output action_type and the distribution of a single action_arg
             # selected by the corresponding sampling method
             select_action_name = self.action_type_names[action_type]
             if select_action_name in self.actor_action_args.keys():
-                # 检查所选action_type是否有action_args
+                # Check if the selected action_type has action_args
                 select_encoded_obs_name = self.action_obs_name_map[select_action_name]
                 action_args_logit[select_action_name] = self.actor_action_args[select_action_name](
                     obs_embedding=obs_embedding,
@@ -144,7 +143,7 @@ class GenshinVAC(nn.Module):
                     encoded_part_obs=encoded_obs[select_encoded_obs_name]
                 )
             else:
-                # 没有或需要用规则计算action_args。应该返回None还是空字典？
+                # when there is no or need to evaluate action_args with rules. should return None
                 action_args_logit = None
         else:
             for action_type_name in self.action_obs_name_map.keys():
@@ -167,7 +166,6 @@ class GenshinVAC(nn.Module):
         obs_embedding,
         encoded_obs,
         sample_action_type:str='argmax',
-        train_mode = False,
         selected_action_type =None,
         ) -> Dict:
         value = self.critic_head(obs_embedding)['pred']
@@ -177,17 +175,17 @@ class GenshinVAC(nn.Module):
         action_type_prob = torch.softmax(action_type_logit, dim=-1)
 
         if selected_action_type is not None:
-            action_type = selected_action_type  # 这里作用域不知道有没有问题
+            action_type = selected_action_type
         else:
             action_type = torch.multinomial(action_type_prob, 1).item() if sample_action_type == 'normal'\
                             else torch.argmax(action_type_prob, 1).item()
         action_args_logit = {}
-        if train_mode:
+        if self.training:
             # If it is training mode, output action_type and the distribution of a single action_arg
             # selected by the corresponding sampling method
             select_action_name = self.action_type_names[action_type]
             if select_action_name in self.actor_action_args.keys():
-                # 检查所选action_type是否有action_args
+                # Check if the selected action_type has action_args
                 select_encoded_obs_name = self.action_obs_name_map[select_action_name]
                 action_args_logit[select_action_name] = self.actor_action_args[select_action_name](
                     obs_embedding=obs_embedding,
@@ -195,7 +193,7 @@ class GenshinVAC(nn.Module):
                     encoded_part_obs=encoded_obs[select_encoded_obs_name]
                 )
             else:
-                # 没有或需要用规则计算action_args。应该返回None还是空字典？
+                # There is no or need to evaluate action_args with rules. should return None
                 action_args_logit = None
         else:
             for action_type_name in self.action_obs_name_map.keys():
