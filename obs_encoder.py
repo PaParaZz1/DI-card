@@ -141,7 +141,6 @@ class ObservationEncoder(nn.Module):
             self,
             obs_space:ObservationSpace,
             output_size=256,
-            # embedding_num=256
             ):
         super(ObservationEncoder, self).__init__()
 

@@ -19,10 +19,8 @@ class ActionArgHead(nn.Module):
     def __init__(
         self,
         encoded_part_obs_shape: Union[int, SequenceType],
-        # obs_embedding_shape,
         action_type_prob_shape,
-        # args_shape,
-        hidden_size
+        hidden_size,    # will be same as obs_embedding_shape
         ):
         super(ActionArgHead, self).__init__()
         self.W_k = nn.Linear(encoded_part_obs_shape, hidden_size)
@@ -41,7 +39,7 @@ class ActionArgHead(nn.Module):
         query = self.W_q(action_type_prob) + obs_embedding     # (B, hidden_size)
         query = query.unsqueeze(1)      # (B, 1, hidden_size)
 
-        logit = torch.mm(query, key.T)  # (B, 1, args_shape)
+        logit = torch.matmul(query,key.permute(0, 2, 1))  # (B, 1, args_shape)
         logit = logit.squeeze(1)        # (B, args_shape)
         return logit
 
@@ -63,10 +61,8 @@ class GenshinVAC(nn.Module):
     def __init__(
         self,
         obs_embedding_shape: Union[int, SequenceType],
-        action_shape: Union[int, SequenceType, EasyDict],
         action_space: ActionSpace,
         encoded_obs_shape: Dict,    # Should correspond to obs_merge_input_sizes in ObservationEncoder
-        # actor_head_hidden_size: int = 64,
         actor_head_layer_num: int = 1,
         critic_head_hidden_size: int = 64,
         critic_head_layer_num: int = 1,
@@ -77,10 +73,10 @@ class GenshinVAC(nn.Module):
         super(GenshinVAC, self).__init__()
         obs_embedding_shape: int = squeeze(obs_embedding_shape)
         # action_shape = squeeze(action_shape)  # will be a dict
-        self.obs_embedding_shape, self.action_shape = obs_embedding_shape, action_shape
+        self.obs_embedding_shape = obs_embedding_shape
 
         self.critic_head = RegressionHead(
-            critic_head_hidden_size,
+            obs_embedding_shape,
             1,
             critic_head_layer_num,
             activation=activation,
@@ -100,18 +96,17 @@ class GenshinVAC(nn.Module):
         self.actor_action_args = nn.ModuleDict({
             action_name: ActionArgHead(
                 encoded_part_obs_shape=encoded_obs_shape[self.action_obs_name_map[action_name]],    # e.g. encoded_obs_shape['card_obs']
-                obs_embedding_shape=obs_embedding_shape,
-                action_type_logit_shape=action_space['action_type_space'].n,
+                action_type_prob_shape=action_space['action_type_space'].n,
                 hidden_size=obs_embedding_shape
             )
-            for action_name in action_space['action_arg_space'] if action_name not in ['elemental_harmony', 'end_round']
+            for action_name in action_space['action_arg_space'] if action_name not in ['elemental_harmony', 'terminate_turn']
         })
-        self.actor = nn.ModuleList([self.actor_action_type, self.actor_action_args])
+        self.actor_head = nn.ModuleList([self.actor_action_type, self.actor_action_args])
 
-    def forward(self, inputs: Union[torch.Tensor, Dict], mode: str) -> Dict:
+    def forward(self, mode: str, **inputs) -> Dict:
         # TODO: How to deal with the parameters here, there are two different sets of parameters
         assert mode in self.mode, "not support forward mode: {}/{}".format(mode, self.mode)
-        return getattr(self, mode)(inputs)
+        return getattr(self, mode)(**inputs)
 
     def compute_actor(
         self,
@@ -130,8 +125,8 @@ class GenshinVAC(nn.Module):
             action_type = torch.multinomial(action_type_prob, 1).item() if sample_action_type == 'normal'\
                             else torch.argmax(action_type_prob, 1).item()
         action_args_logit = {}
-        if self.training:
-            # If it is training mode, output action_type and the distribution of a single action_arg
+        if not self.training:
+            # If it is not training mode, output action_type and the distribution of a single action_arg
             # selected by the corresponding sampling method
             select_action_name = self.action_type_names[action_type]
             if select_action_name in self.actor_action_args.keys():
@@ -180,8 +175,8 @@ class GenshinVAC(nn.Module):
             action_type = torch.multinomial(action_type_prob, 1).item() if sample_action_type == 'normal'\
                             else torch.argmax(action_type_prob, 1).item()
         action_args_logit = {}
-        if self.training:
-            # If it is training mode, output action_type and the distribution of a single action_arg
+        if not self.training:
+            # If it is not training mode, output action_type and the distribution of a single action_arg
             # selected by the corresponding sampling method
             select_action_name = self.action_type_names[action_type]
             if select_action_name in self.actor_action_args.keys():

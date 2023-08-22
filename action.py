@@ -117,7 +117,6 @@ class ActionType:
     change_character: int = 3
     terminate_turn: int = 4
 
-
 @dataclass
 class ActionArgs:
     card: int = 0
@@ -133,13 +132,13 @@ class ActionSpace(gym.spaces.Dict):
         action_type_space = gym.spaces.Discrete(5)  # play card/elemental harmony/use skill/switch role/end round
         card_action_args_space = gym.spaces.Discrete(10)  # 10 options for the argseter space of play card/elemental harmony
         skill_action_args_space = gym.spaces.Discrete(4)  # 3/4 options for arg space for use skills
-        switch_character_action_args_space = gym.spaces.Discrete(3)  # 3 options for arg space for switch role
+        change_character_action_args_space = gym.spaces.Discrete(3)  # 3 options for arg space for switch role
         action_arg_spaces = {
             'play_card': card_action_args_space,
             'elemental_harmony': card_action_args_space,
             'use_skill': skill_action_args_space,
-            'switch_character': switch_character_action_args_space,
-            'end_round': gym.spaces.Discrete(1)
+            'change_character': change_character_action_args_space,
+            'terminate_turn': gym.spaces.Discrete(1)
         }
         action_space_dict = {
             'action_type_space':action_type_space,
@@ -156,7 +155,7 @@ class ActionSpace(gym.spaces.Dict):
         else:
             card_mask = np.ones(self['action_arg_space']['play_card'].n,dtype=np.int8)
             skill_mask = np.ones(self['action_arg_space']['use_skill'].n,dtype=np.int8)
-            character_mask = np.ones(self['use_skill']['use_skill'].n,dtype=np.int8)
+            character_mask = np.ones(self['action_arg_space']['change_character'].n,dtype=np.int8)
 
         if action_type == 0:    # play card
             action_args = self['action_arg_space']['play_card'].sample(mask=card_mask)
@@ -165,7 +164,7 @@ class ActionSpace(gym.spaces.Dict):
         elif action_type == 2:  # use skills
             action_args = self['action_arg_space']['use_skill'].sample(mask=skill_mask)
         elif action_type == 3:  # switch role
-            action_args = self['action_arg_space']['switch_character'].sample(mask=character_mask)  # Randomly select args for switch role
+            action_args = self['action_arg_space']['change_character'].sample(mask=character_mask)  # Randomly select args for switch role
         else:  # end round
             # action_args = None
             action_args = -1
