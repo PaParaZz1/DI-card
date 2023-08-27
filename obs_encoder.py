@@ -268,8 +268,7 @@ class ObservationEncoder(nn.Module):
                 obs.character_is_enemy,
                 obs.character_element_attachment,
                 obs.character_is_full
-            ], dim=0)  # (10, character_num)
-            character_obs = torch.transpose(character_obs, 0, 1)    # (character_num, 10)
+            ], dim=1)  # (character_num, 10)
             processed_obs_lists['character_obs'].append(character_obs)
             character_num = character_obs.shape[0]
             character_other_info = obs.character_other_info.view(character_num, -1)    # (character_num, embedding_num) 
@@ -279,8 +278,7 @@ class ObservationEncoder(nn.Module):
                 obs.skill_is_available,
                 obs.skill_is_charge,
                 obs.skill_direct_damage,
-            ], dim=0)  # (3, max_skill_num)
-            skill_obs = torch.transpose(skill_obs, 0, 1)    # (max_skill_num, 3)
+            ], dim=1)  # (max_skill_num, 3)
             processed_obs_lists['skill_obs'].append(skill_obs)
             max_skill_num = skill_obs.shape[0]
             skill_other_info = obs.skill_other_info.view(max_skill_num, -1)    # (max_skill_num, embedding_num)
@@ -291,8 +289,7 @@ class ObservationEncoder(nn.Module):
                 obs.card_is_same_dice,
                 obs.card_dice_cost,
                 obs.card_type,
-            ], dim=0)  # (4, max_usable_card_num)
-            card_obs = torch.transpose(card_obs, 0, 1)    # (max_usable_card_num, 4)
+            ], dim=1)  # (max_usable_card_num, 4)
             processed_obs_lists['card_obs'].append(card_obs)
             max_usable_card_num = card_obs.shape[0]
             card_other_info = obs.card_other_info.view(max_usable_card_num, -1)     # (max_usable_card_num, embedding_num)
