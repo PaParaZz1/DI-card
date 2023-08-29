@@ -1,5 +1,6 @@
 from typing import Optional, List, Tuple, Dict
 import gym
+import numpy as np
 import torch
 import treetensor.numpy as tnp
 from ding.torch_utils import to_device
@@ -90,10 +91,14 @@ class GenshinCardEnv(gym.Env):
                 raise NotImplementedError
         else:
             self.game.init_deck(self.player1_deck, self.player2_deck, seed=self.random_seed)
-        self.last_action = None
         self.episode_count = 0
         self.game_info = self.game.encode_game_info(PlayerID.SPECTATOR)
-        return self._get_obs(self.game_info, self.last_action)
+
+        obs = self._get_obs(self.game_info, self.last_action)
+
+        self.last_action = None
+        self.last_obs = obs
+        return obs
 
     def step(self, action):
         # preprocess action
@@ -104,18 +109,22 @@ class GenshinCardEnv(gym.Env):
             elif active_player == PlayerID.PLAYER2:
                 action = self.player2_agent.take_action(self.game_info)
         else:
-            # TODO action transformation
-            raise NotImplementedError
+            print('action', action)
+            raw_action = self.action_space.transform_raw_action(action, self.last_obs)
+            print('raw action', raw_action)
 
         # execute action
-        valid = self.game.judge_action(action)
+        valid = self.game.judge_action(raw_action)
         if not valid:
             raise NotImplementedError
-        self.game.step(action)
+        self.game.step(raw_action)
         self.game_info = self.game.encode_game_info()
         obs = self._get_obs(self.game_info, self.last_action)
         done, info = self.is_done(self.game_info)
         reward = 0.  # TODO
+
+        self.last_obs = obs
+        self.last_action = action
         return obs, reward, done, info
 
     def is_done(self, raw_game_info) -> Tuple[bool, Dict]:
@@ -129,10 +138,12 @@ class GenshinCardEnv(gym.Env):
         return done, info
 
     def _get_obs(self, raw_game_info, last_action) -> tnp.ndarray:
-        raise NotImplementedError
+        obs = self.observation_space.get_zero_data()
+        return obs
 
 
 if __name__ == "__main__":
+    np.random.seed(3)
     env = GenshinCardEnv(env_id=None, character_list=None, card_list=None, debug=True)
     obs = env.observation_space.sample()
     print([v.shape for v in obs.values()])
@@ -150,5 +161,7 @@ if __name__ == "__main__":
     batch_obs = to_device([env.observation_space.sample().tensor() for i in range(batch_size)], device)
     batch_last_action = to_device([env.action_space.sample(obs=obs).tensor() for i in range(batch_size)], device)
     encoded_obs = obs_encoder(batch_obs, batch_last_action)
-    assert encoded_obs.shape == (batch_size, embedding_size), 'shape of encoded_obs should be {}'.format((batch_size, embedding_size))
+    assert encoded_obs.shape == (batch_size, embedding_size), 'shape of encoded_obs should be {}'.format(
+        (batch_size, embedding_size)
+    )
     print('end')

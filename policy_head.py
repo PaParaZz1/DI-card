@@ -9,6 +9,7 @@ from ding.model.common import ReparameterizationHead, RegressionHead, DiscreteHe
     FCEncoder, ConvEncoder, IMPALAConvEncoder
 from action import ActionSpace, ActionType
 
+
 class ActionArgHead(nn.Module):
     r"""
     Overview:
@@ -16,12 +17,13 @@ class ActionArgHead(nn.Module):
     Interfaces:
         ``__init__``, ``forward``
     """
+
     def __init__(
         self,
         encoded_part_obs_shape: Union[int, SequenceType],
         action_type_prob_shape,
-        hidden_size,    # will be same as obs_embedding_shape
-        ):
+        hidden_size,  # will be same as obs_embedding_shape
+    ):
         super(ActionArgHead, self).__init__()
         self.W_k = nn.Linear(encoded_part_obs_shape, hidden_size)
         self.W_q = nn.Linear(action_type_prob_shape, hidden_size)
@@ -29,18 +31,18 @@ class ActionArgHead(nn.Module):
     def forward(
         self,
         obs_embedding,  # (B, hidden_size)
-        action_type_prob,   # (B, action_type_num)
-        encoded_part_obs     # shape (B, args_shape, encoded_part_obs_shape), part of encoded_obs related to the current arg_head
-        ):
+        action_type_prob,  # (B, action_type_num)
+        encoded_part_obs  # shape (B, args_shape, encoded_part_obs_shape), part of encoded_obs related to the current arg_head
+    ):
         # cross attention
-        key = self.W_k(encoded_part_obs)   # (B, args_shape, hidden_size)
+        key = self.W_k(encoded_part_obs)  # (B, args_shape, hidden_size)
         key = (key - key.mean()) / (key.std() + 1e-8)
 
-        query = self.W_q(action_type_prob) + obs_embedding     # (B, hidden_size)
-        query = query.unsqueeze(1)      # (B, 1, hidden_size)
+        query = self.W_q(action_type_prob) + obs_embedding  # (B, hidden_size)
+        query = query.unsqueeze(1)  # (B, 1, hidden_size)
 
-        logit = torch.matmul(query,key.permute(0, 2, 1))  # (B, 1, args_shape)
-        logit = logit.squeeze(1)        # (B, args_shape)
+        logit = torch.matmul(query, key.permute(0, 2, 1))  # (B, 1, args_shape)
+        logit = logit.squeeze(1)  # (B, args_shape)
         return logit
 
 
@@ -57,17 +59,18 @@ class GenshinVAC(nn.Module):
     action_type_names = dict(zip(ActionType().__dict__.values(), ActionType().__dict__.keys()))
     # action_type_names = asdict(ActionType())
     # action_obs_name_map is used to match action names and encoded_obs names for action_args_head
-    action_obs_name_map = {'play_card':'card_obs','use_skill':'skill_obs', 'change_character': 'character_obs'}
+    action_obs_name_map = {'play_card': 'card_obs', 'use_skill': 'skill_obs', 'change_character': 'character_obs'}
+
     def __init__(
-        self,
-        obs_embedding_shape: Union[int, SequenceType],
-        action_space: ActionSpace,
-        encoded_obs_shape: Dict,    # Should correspond to obs_merge_input_sizes in ObservationEncoder
-        actor_head_layer_num: int = 1,
-        critic_head_hidden_size: int = 64,
-        critic_head_layer_num: int = 1,
-        activation: Optional[nn.Module] = nn.ReLU(),
-        norm_type: Optional[str] = None,
+            self,
+            obs_embedding_shape: Union[int, SequenceType],
+            action_space: ActionSpace,
+            encoded_obs_shape: Dict,  # Should correspond to obs_merge_input_sizes in ObservationEncoder
+            actor_head_layer_num: int = 1,
+            critic_head_hidden_size: int = 64,
+            critic_head_layer_num: int = 1,
+            activation: Optional[nn.Module] = nn.ReLU(),
+            norm_type: Optional[str] = None,
     ) -> None:
 
         super(GenshinVAC, self).__init__()
@@ -76,31 +79,31 @@ class GenshinVAC(nn.Module):
         self.obs_embedding_shape = obs_embedding_shape
 
         self.critic_head = RegressionHead(
-            obs_embedding_shape,
-            1,
-            critic_head_layer_num,
-            activation=activation,
-            norm_type=norm_type
+            obs_embedding_shape, 1, critic_head_layer_num, activation=activation, norm_type=norm_type
         )
-        
+
         # actor head
         # action type head
         self.actor_action_type = DiscreteHead(
-                obs_embedding_shape,
-                action_space['action_type_space'].n,
-                actor_head_layer_num,
-                activation=activation,
-                norm_type=norm_type,
+            obs_embedding_shape,
+            action_space['action_type_space'].n,
+            actor_head_layer_num,
+            activation=activation,
+            norm_type=norm_type,
         )
         # three action args heads: 'play_card', 'use_skill', 'change_character'
-        self.actor_action_args = nn.ModuleDict({
-            action_name: ActionArgHead(
-                encoded_part_obs_shape=encoded_obs_shape[self.action_obs_name_map[action_name]],    # e.g. encoded_obs_shape['card_obs']
-                action_type_prob_shape=action_space['action_type_space'].n,
-                hidden_size=obs_embedding_shape
-            )
-            for action_name in action_space['action_arg_space'] if action_name not in ['elemental_harmony', 'terminate_turn']
-        })
+        self.actor_action_args = nn.ModuleDict(
+            {
+                action_name: ActionArgHead(
+                    encoded_part_obs_shape=encoded_obs_shape[self.action_obs_name_map[action_name]
+                                                             ],  # e.g. encoded_obs_shape['card_obs']
+                    action_type_prob_shape=action_space['action_type_space'].n,
+                    hidden_size=obs_embedding_shape
+                )
+                for action_name in action_space['action_arg_space']
+                if action_name not in ['elemental_harmony', 'terminate_turn']
+            }
+        )
         self.actor_head = nn.ModuleList([self.actor_action_type, self.actor_action_args])
 
     def forward(self, mode: str, **inputs) -> Dict:
@@ -109,12 +112,12 @@ class GenshinVAC(nn.Module):
         return getattr(self, mode)(**inputs)
 
     def compute_actor(
-        self,
-        obs_embedding,
-        encoded_obs,
-        sample_action_type: str = 'argmax',
-        selected_action_type =None,     # action_type selected outside
-        ) -> Dict:
+            self,
+            obs_embedding,
+            encoded_obs,
+            sample_action_type: str = 'argmax',
+            selected_action_type=None,  # action_type selected outside
+    ) -> Dict:
         # sample_action_type could be 'argmax' or 'normal'
         assert sample_action_type in ["argmax", "normal"], "sample_action_type should be 'argmax' or 'normal'"
         action_type_logit = self.actor_action_type(obs_embedding)['logit']
@@ -157,12 +160,12 @@ class GenshinVAC(nn.Module):
         return {'value': x['pred']}
 
     def compute_actor_critic(
-        self,
-        obs_embedding,
-        encoded_obs,
-        sample_action_type:str='argmax',
-        selected_action_type =None,
-        ) -> Dict:
+            self,
+            obs_embedding,
+            encoded_obs,
+            sample_action_type: str = 'argmax',
+            selected_action_type=None,
+    ) -> Dict:
         value = self.critic_head(obs_embedding)['pred']
 
         assert sample_action_type in ["argmax", "normal"], "sample_action_type should be 'argmax' or 'normal'"
@@ -200,4 +203,3 @@ class GenshinVAC(nn.Module):
                 )
 
         return {'logit': {'action_type': action_type_logit, 'action_args': action_args_logit}, 'value': value}
-
