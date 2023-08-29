@@ -54,7 +54,7 @@ class GenshinVAC(nn.Module):
     mode = ['compute_actor', 'compute_critic', 'compute_actor_critic']
     # action_type_names is a dict corresponding to the sequence number and action type name
     # e.g {0:'play_card'}
-    action_type_names = {getattr(ActionType, attr): attr for attr in dir(ActionType) if not callable(getattr(ActionType, attr)) and not attr.startswith("__")}
+    action_type_names = dict(zip(ActionType().__dict__.values(), ActionType().__dict__.keys()))
     # action_type_names = asdict(ActionType())
     # action_obs_name_map is used to match action names and encoded_obs names for action_args_head
     action_obs_name_map = {'play_card':'card_obs','use_skill':'skill_obs', 'change_character': 'character_obs'}
