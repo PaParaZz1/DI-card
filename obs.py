@@ -76,6 +76,13 @@ class Space:
         else:
             assert False, f'Unknown space type {self.type_!r}, should not reach this line!'  # pragma: no cover
 
+    def get_zero_data(self):
+        if self.type_ == FeatureType.SCALAR:
+            dtype = np.float32
+        else:
+            dtype = np.int64  # uint8
+        return np.zeros(shape=self.shape, dtype=dtype)
+
 
 class ObservationSpace(namedtuple('ObservationSpace', (
         'last_play',
@@ -133,6 +140,13 @@ class ObservationSpace(namedtuple('ObservationSpace', (
         for f in self._fields:
             s = getattr(self, f)
             data[f] = s.sample()
+        return tnp.array(data)
+
+    def get_zero_data(self):
+        data = {}
+        for f in self._fields:
+            s = getattr(self, f)
+            data[f] = s.get_zero_data()
         return tnp.array(data)
 
 

@@ -92,10 +92,14 @@ class GenshinCardEnv(gym.Env):
                 raise NotImplementedError
         else:
             self.game.init_deck(self.player1_deck, self.player2_deck, seed=self.random_seed)
-        self.last_action = None
         self.episode_count = 0
         self.game_info = self.game.encode_game_info(PlayerID.SPECTATOR)
-        return self._get_obs(self.game_info, self.last_action)
+
+        obs = self._get_obs(self.game_info, self.last_action)
+
+        self.last_action = None
+        self.last_obs = obs
+        return obs
 
     def step(self, action):
         # preprocess action
@@ -106,18 +110,22 @@ class GenshinCardEnv(gym.Env):
             elif active_player == PlayerID.PLAYER2:
                 action = self.player2_agent.take_action(self.game_info)
         else:
-            # TODO action transformation
-            raise NotImplementedError
+            print('action', action)
+            raw_action = self.action_space.transform_raw_action(action, self.last_obs)
+            print('raw action', raw_action)
 
         # execute action
-        valid = self.game.judge_action(action)
+        valid = self.game.judge_action(raw_action)
         if not valid:
             raise NotImplementedError
-        self.game.step(action)
+        self.game.step(raw_action)
         self.game_info = self.game.encode_game_info()
         obs = self._get_obs(self.game_info, self.last_action)
         done, info = self.is_done(self.game_info)
         reward = 0.  # TODO
+
+        self.last_obs = obs
+        self.last_action = action
         return obs, reward, done, info
 
     def is_done(self, raw_game_info) -> Tuple[bool, Dict]:
@@ -260,7 +268,7 @@ class GenshinCardEnv(gym.Env):
 
 if __name__ == "__main__":
     logging.try_init_root(logging.INFO)
-
+    np.random.seed(3)
     env = GenshinCardEnv(env_id=None, character_list=None, card_list=None, debug=True)
     obs = env.observation_space.sample()
     print([v.shape for v in obs.values()])
