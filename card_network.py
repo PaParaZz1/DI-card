@@ -60,7 +60,7 @@ class CardNetwork(nn.Module):
                 mode=head_mode,
                 obs_embedding=obs_embedding,
                 encoded_obs=encoded_obs_for_head,
-                selected_action_type=sample_action_type,
-                sample_action_type=selected_action_type,
+                selected_action_type=selected_action_type,
+                sample_action_type=sample_action_type,
             )
         return outputs

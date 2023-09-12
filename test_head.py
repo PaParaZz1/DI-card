@@ -33,6 +33,7 @@ class TestHead:
                 action_space=env.action_space,
                 encoded_obs_shape=encoder.obs_merge_input_sizes,
             ).to(test_device)
+        # head.eval()
         obs_embedding = encoded_obs['merged_obs']
         encoded_obs_for_head = encoded_obs['obs_for_head']
         outputs0 = head.forward(
@@ -64,6 +65,7 @@ class TestHead:
                 action_space=env.action_space,
                 encoded_obs_shape=encoder.obs_merge_input_sizes,
             ).to(test_device)
+        # head.eval()
         obs_embedding = encoded_obs['merged_obs']
         encoded_obs_for_head = encoded_obs['obs_for_head']
         # test compute_actor
@@ -100,6 +102,7 @@ class TestHead:
                 action_space=env.action_space,
                 encoded_obs_shape=encoder.obs_merge_input_sizes,
             ).to(test_device)
+        # head.eval()
         obs_embedding = encoded_obs['merged_obs']
         # test compute_critic
         for p in encoder.parameters():
