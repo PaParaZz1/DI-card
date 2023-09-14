@@ -24,10 +24,9 @@ class CardNetwork(nn.Module):
         critic_head_layer_num: int = 1,
         activation: Optional[nn.Module] = nn.ReLU(),
         norm_type: Optional[str] = None,
-        device = 'cpu',
     ):
         super(CardNetwork, self).__init__()
-        self.encoder = ObservationEncoder(obs_space, output_size=encoder_output_size).to(device)
+        self.encoder = ObservationEncoder(obs_space, output_size=encoder_output_size)
         self.head = GenshinVAC(
                 obs_embedding_shape=encoder_output_size,
                 action_space=action_space,
@@ -37,7 +36,7 @@ class CardNetwork(nn.Module):
                 critic_head_layer_num = critic_head_layer_num,
                 activation = activation,
                 norm_type = norm_type,
-            ).to(device)
+            )
     
     def forward(
             self,
@@ -55,7 +54,7 @@ class CardNetwork(nn.Module):
                 mode=head_mode,
                 obs_embedding=obs_embedding,
             )
-        else:
+        elif head_mode=='compute_actor_critic' or head_mode=='compute_actor':
             outputs = self.head.forward(
                 mode=head_mode,
                 obs_embedding=obs_embedding,
@@ -63,4 +62,6 @@ class CardNetwork(nn.Module):
                 selected_action_type=selected_action_type,
                 sample_action_type=sample_action_type,
             )
+        else:
+            raise KeyError("Invalid head_mode: {}".format(head_mode))
         return outputs

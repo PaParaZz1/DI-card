@@ -181,7 +181,12 @@ class GenshinVAC(nn.Module):
             # selected by the corresponding sampling method
             action_type_name_list = [self.action_type_names[action.item()] for action in action_type]
             # There is no or need to evaluate action_args with rules. should return None
-            action_args_logit = [None if action_args_logit.get(action_type) is None else action_args_logit[action_type][i]
-                   for i, action_type in enumerate(action_type_name_list)]
+            args_logit = []
+            for i, action_type in enumerate(action_type_name_list):
+                if action_args_logit.get(action_type) is None:
+                    args_logit.append(None)
+                else:
+                    args_logit.append(action_args_logit[action_type][i])
+            action_args_logit = args_logit
 
         return {'logit': {'action_type': action_type_logit, 'action_args': action_args_logit}, 'value': value}
