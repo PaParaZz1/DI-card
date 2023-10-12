@@ -11,7 +11,7 @@ from gisim.classes.enums import GameStatus, PlayerID
 
 from obs import get_observation_space, Character, Card
 from action import get_action_space
-from obs_encoder import ObservationEncoder
+from encoder import ObservationEncoder
 
 
 class GenshinCardEnv(gym.Env):
@@ -157,10 +157,10 @@ if __name__ == "__main__":
     batch_size = 8
     embedding_size = 256
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    obs_encoder = ObservationEncoder(env.observation_space, output_size=embedding_size).to(device)
+    encoder = ObservationEncoder(env.observation_space, output_size=embedding_size).to(device)
     batch_obs = to_device([env.observation_space.sample().tensor() for i in range(batch_size)], device)
     batch_last_action = to_device([env.action_space.sample(obs=obs).tensor() for i in range(batch_size)], device)
-    encoded_obs = obs_encoder(batch_obs, batch_last_action)
+    encoded_obs = encoder(batch_obs, batch_last_action)
     assert encoded_obs.shape == (batch_size, embedding_size), 'shape of encoded_obs should be {}'.format(
         (batch_size, embedding_size)
     )

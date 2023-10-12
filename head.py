@@ -11,7 +11,7 @@ from action import ActionSpace, ActionType
 
 
 class ActionArgHead(nn.Module):
-    r"""
+    """
     Overview:
         
     Interfaces:
@@ -47,7 +47,7 @@ class ActionArgHead(nn.Module):
 
 
 class GenshinVAC(nn.Module):
-    r"""
+    """
     Overview:
         The VAC model for DI-Card.
     Interfaces:
@@ -116,7 +116,7 @@ class GenshinVAC(nn.Module):
             obs_embedding,
             encoded_obs,
             sample_action_type: str = 'argmax',
-            selected_action_type=None,  # action_type selected outside
+            selected_action_type=None,  # action_type selected outside, shape should be (B, )
     ) -> Dict:
         # sample_action_type could be 'argmax' or 'normal'
         assert sample_action_type in ["argmax", "normal"], "sample_action_type should be 'argmax' or 'normal'"
@@ -125,32 +125,23 @@ class GenshinVAC(nn.Module):
         if selected_action_type is not None:
             action_type = selected_action_type
         else:
-            action_type = torch.multinomial(action_type_prob, 1).item() if sample_action_type == 'normal'\
-                            else torch.argmax(action_type_prob, 1).item()
+            action_type = torch.multinomial(action_type_prob, 1) if sample_action_type == 'normal'\
+                            else torch.argmax(action_type_prob, 1)
         action_args_logit = {}
+        for action_type_name in self.action_obs_name_map.keys():
+            encoded_obs_name = self.action_obs_name_map[action_type_name]
+            action_args_logit[action_type_name] = self.actor_action_args[action_type_name](
+                obs_embedding=obs_embedding,
+                action_type_prob=action_type_prob,
+                encoded_part_obs=encoded_obs[encoded_obs_name]
+            )
         if not self.training:
             # If it is not training mode, output action_type and the distribution of a single action_arg
             # selected by the corresponding sampling method
-            select_action_name = self.action_type_names[action_type]
-            if select_action_name in self.actor_action_args.keys():
-                # Check if the selected action_type has action_args
-                select_encoded_obs_name = self.action_obs_name_map[select_action_name]
-                action_args_logit[select_action_name] = self.actor_action_args[select_action_name](
-                    obs_embedding=obs_embedding,
-                    action_type_prob=action_type_prob,
-                    encoded_part_obs=encoded_obs[select_encoded_obs_name]
-                )
-            else:
-                # when there is no or need to evaluate action_args with rules. should return None
-                action_args_logit = None
-        else:
-            for action_type_name in self.action_obs_name_map.keys():
-                encoded_obs_name = self.action_obs_name_map[action_type_name]
-                action_args_logit[action_type_name] = self.actor_action_args[action_type_name](
-                    obs_embedding=obs_embedding,
-                    action_type_prob=action_type_prob,
-                    encoded_part_obs=encoded_obs[encoded_obs_name]
-                )
+            action_type_name_list = [self.action_type_names[action.item()] for action in action_type]
+            # There is no or need to evaluate action_args with rules. should return None
+            action_args_logit = [None if action_args_logit.get(action_type) is None else action_args_logit[action_type][i]
+                   for i, action_type in enumerate(action_type_name_list)]
         # action_type_logit: one distribution
         # action_args(dict): 1 distribution(train mode)/3 distribution(test mode)
         return {'logit': {'action_type': action_type_logit, 'action_args': action_args_logit}}
@@ -175,31 +166,34 @@ class GenshinVAC(nn.Module):
         if selected_action_type is not None:
             action_type = selected_action_type
         else:
-            action_type = torch.multinomial(action_type_prob, 1).item() if sample_action_type == 'normal'\
-                            else torch.argmax(action_type_prob, 1).item()
+            action_type = torch.multinomial(action_type_prob, 1).squeeze(1) if sample_action_type == 'normal'\
+                            else torch.argmax(action_type_prob, 1)
         action_args_logit = {}
+        for action_type_name in self.action_obs_name_map.keys():
+            encoded_obs_name = self.action_obs_name_map[action_type_name]
+            action_args_logit[action_type_name] = self.actor_action_args[action_type_name](
+                obs_embedding=obs_embedding,
+                action_type_prob=action_type_prob,
+                encoded_part_obs=encoded_obs[encoded_obs_name]
+            )
         if not self.training:
             # If it is not training mode, output action_type and the distribution of a single action_arg
             # selected by the corresponding sampling method
-            select_action_name = self.action_type_names[action_type]
-            if select_action_name in self.actor_action_args.keys():
-                # Check if the selected action_type has action_args
-                select_encoded_obs_name = self.action_obs_name_map[select_action_name]
-                action_args_logit[select_action_name] = self.actor_action_args[select_action_name](
-                    obs_embedding=obs_embedding,
-                    action_type_prob=action_type_prob,
-                    encoded_part_obs=encoded_obs[select_encoded_obs_name]
-                )
-            else:
-                # There is no or need to evaluate action_args with rules. should return None
-                action_args_logit = None
-        else:
-            for action_type_name in self.action_obs_name_map.keys():
-                encoded_obs_name = self.action_obs_name_map[action_type_name]
-                action_args_logit[action_type_name] = self.actor_action_args[action_type_name](
-                    obs_embedding=obs_embedding,
-                    action_type_prob=action_type_prob,
-                    encoded_part_obs=encoded_obs[encoded_obs_name]
-                )
+            action_type_name_list = [self.action_type_names[action.item()] for action in action_type]
+            # There is no or need to evaluate action_args with rules. should return None
+            args_logit = []
+            for i, action_type in enumerate(action_type_name_list):
+                if action_args_logit.get(action_type) is None:
+                    args_logit.append(None)
+                else:
+                    args_logit.append(action_args_logit[action_type][i])
+            action_args_logit = args_logit
 
         return {'logit': {'action_type': action_type_logit, 'action_args': action_args_logit}, 'value': value}
+    
+    def get_action_args_head(self, action_type: str):
+        if action_type in self.action_obs_name_map:
+            return self.actor_action_args[action_type]
+        else:
+            return None
+
