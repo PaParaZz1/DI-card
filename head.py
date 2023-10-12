@@ -11,7 +11,7 @@ from action import ActionSpace, ActionType
 
 
 class ActionArgHead(nn.Module):
-    r"""
+    """
     Overview:
         
     Interfaces:
@@ -47,7 +47,7 @@ class ActionArgHead(nn.Module):
 
 
 class GenshinVAC(nn.Module):
-    r"""
+    """
     Overview:
         The VAC model for DI-Card.
     Interfaces:
@@ -190,3 +190,10 @@ class GenshinVAC(nn.Module):
             action_args_logit = args_logit
 
         return {'logit': {'action_type': action_type_logit, 'action_args': action_args_logit}, 'value': value}
+    
+    def get_action_args_head(self, action_type: str):
+        if action_type in self.action_obs_name_map:
+            return self.actor_action_args[action_type]
+        else:
+            return None
+

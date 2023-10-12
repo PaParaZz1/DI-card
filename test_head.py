@@ -49,7 +49,7 @@ class TestHead:
         )
         is_differentiable(test_output0, head)
 
-    def test_computer_actor(self):
+    def test_compute_actor(self):
         env = GenshinCardEnv(env_id=None, character_list=None, card_list=None, embedding_num=embedding_size)
         # obs = env.observation_space.sample()
         # print(obs)

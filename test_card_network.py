@@ -9,7 +9,7 @@ from genshin_card_env import GenshinCardEnv
 from encoder import ObservationEncoder
 from head import GenshinVAC
 from card_network import CardNetwork
-from fake_data import Data_Generator
+from fake_data import DataGenerator
 
 B = 8
 test_device = 'cuda'
@@ -19,7 +19,8 @@ embedding_size = 256
 class TestCardNetwork:
 
     def test_compute_actor_critic(self):
-        generator = Data_Generator()
+        # only test train mode
+        generator = DataGenerator()
         net = CardNetwork(
             generator.observation_space,
             generator.action_space,
@@ -31,14 +32,20 @@ class TestCardNetwork:
             batch_last_action,
             head_mode = 'compute_actor_critic'
             )
-        assert outputs['value'].shape == (B, ), "action_logit should be a dictionary"
+        assert outputs['value'].shape == (B, ), "shape of value should be ({B},)".format(B=B)
+        assert isinstance(outputs['logit'], dict), "outputs['logit'] should be a dictionary"
+        assert outputs['logit']['action_type'].shape == (B, 5)
+        assert outputs['logit']['action_args']['play_card'].shape == (B, 10)
+        assert outputs['logit']['action_args']['use_skill'].shape == (B, 4)
+        assert outputs['logit']['action_args']['change_character'].shape == (B, 6)
         test_output = outputs['value'].sum() + outputs['logit']['action_type'].sum() + sum(
                 [action_arg_logit.sum() for action_arg_logit in outputs['logit']['action_args'].values()]
             )
         is_differentiable(test_output, net)
 
     def test_compute_actor(self):
-        generator = Data_Generator()
+        # only test train mode
+        generator = DataGenerator()
         net = CardNetwork(
             generator.observation_space,
             generator.action_space,
@@ -51,13 +58,18 @@ class TestCardNetwork:
             head_mode = 'compute_actor'
             )
         assert isinstance(outputs['logit'], dict), "outputs['logit'] should be a dictionary"
+        assert outputs['logit']['action_type'].shape == (B, 5)
+        assert outputs['logit']['action_args']['play_card'].shape == (B, 10)
+        assert outputs['logit']['action_args']['use_skill'].shape == (B, 4)
+        assert outputs['logit']['action_args']['change_character'].shape == (B, 6)
         test_output = outputs['logit']['action_type'].sum() + sum(
                 [action_arg_logit.sum() for action_arg_logit in outputs['logit']['action_args'].values()]
             )
         is_differentiable(test_output, [net.encoder, net.head.actor_head])
 
     def test_compute_critic(self):
-        generator = Data_Generator()
+        # only test train mode
+        generator = DataGenerator()
         net = CardNetwork(
             generator.observation_space,
             generator.action_space,
@@ -69,7 +81,7 @@ class TestCardNetwork:
             batch_last_action,
             head_mode = 'compute_critic'
             )
-        assert outputs['value'].shape == (B, ), "action_logit should be a dictionary"
+        assert outputs['value'].shape == (B, ), "shape of value should be ({B},)".format(B=B)
         is_differentiable(outputs['value'].sum(), [net.encoder, net.head.critic_head])
 
 # test_compute_actor_critic()

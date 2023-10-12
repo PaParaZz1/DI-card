@@ -7,7 +7,7 @@ from ding.torch_utils import to_device
 from obs import get_observation_space
 from action import get_action_space
 
-class Data_Generator:
+class DataGenerator:
     r"""
     Overview:
         data generator to generate fake data.
@@ -22,7 +22,7 @@ class Data_Generator:
         max_summoner_num: int = 4 * 2,  # our side and other side
         max_supporter_num: int = 4 * 2,  # our side and other side
     ):
-        super(Data_Generator, self).__init__()
+        super(DataGenerator, self).__init__()
         self.observation_space = get_observation_space(
             character_num, embedding_num, max_skill_num, max_usable_card_num, max_usable_dice_num, max_summoner_num,
             max_supporter_num

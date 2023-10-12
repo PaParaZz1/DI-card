@@ -9,7 +9,7 @@ from encoder import ObservationEncoder
 from head import GenshinVAC
 
 class CardNetwork(nn.Module):
-    r"""
+    """
     Overview:
         Network including encoder and head.
     """

@@ -8,7 +8,7 @@ from obs import ObservationSpace
 
 
 class SubObsEncoder(nn.Module):
-    r"""
+    """
     Overview:
         Encoder structure shared by other encoders except global_obs.
     """
@@ -24,7 +24,7 @@ class SubObsEncoder(nn.Module):
 
 
 class DiceObsEncoder(nn.Module):
-    r"""
+    """
     Overview:
         Encoder that encodes dice_obs.
     """
@@ -41,7 +41,7 @@ class DiceObsEncoder(nn.Module):
 
 
 class CharacterObsEncoder(nn.Module):
-    r"""
+    """
     Overview:
         Encoder that encodes character_obs.
     """
@@ -57,7 +57,7 @@ class CharacterObsEncoder(nn.Module):
 
 
 class SkillObsEncoder(nn.Module):
-    r"""
+    """
     Overview:
         Encoder that encodes skill_obs.
     """
@@ -73,7 +73,7 @@ class SkillObsEncoder(nn.Module):
 
 
 class CardObsEncoder(nn.Module):
-    r"""
+    """
     Overview:
         Encoder that encodes card_obs.
     """
@@ -89,7 +89,7 @@ class CardObsEncoder(nn.Module):
 
 
 class SummonerObsEncoder(nn.Module):
-    r"""
+    """
     Overview:
         Encoder that encodes summoner_obs.
     """
@@ -105,7 +105,7 @@ class SummonerObsEncoder(nn.Module):
 
 
 class SupporterObsEncoder(nn.Module):
-    r"""
+    """
     Overview:
         Encoder that encodes supporter_obs.
     """
@@ -121,7 +121,7 @@ class SupporterObsEncoder(nn.Module):
 
 
 class GlobalObsEncoder(nn.Module):
-    r"""
+    """
     Overview:
         Encoder that encodes global_obs.
     """
@@ -140,7 +140,7 @@ class GlobalObsEncoder(nn.Module):
 
 
 class ObservationEncoder(nn.Module):
-    r"""
+    """
     Overview:
         Encoder that processes and encodes the overall obs.
     """
